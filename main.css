@@ -1,0 +1,96 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400&display=swap');
+
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgb(34, 34, 34);
+    font-family: 'Roboto', sans-serif;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='rgb(200, 200, 200)' fill-opacity='1' d='M0,224L40,229.3C80,235,160,245,240,229.3C320,213,400,171,480,133.3C560,96,640,64,720,80C800,96,880,160,960,208C1040,256,1120,288,1200,266.7C1280,245,1360,171,1400,133.3L1440,96L1440,320L1400,320C1360,320,1280,320,1200,320C1120,320,1040,320,960,320C880,320,800,320,720,320C640,320,560,320,480,320C400,320,320,320,240,320C160,320,80,320,40,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+    background-size: cover;
+    background-position: 0 100px;
+    background-repeat: no-repeat;
+}
+
+table {
+    border-spacing: 0;
+    --radius: 10px;
+    --half_radius: calc(var(--radius) / 2);
+    --odd_background: linear-gradient(to top, #202020,#303030);
+    --even_background: linear-gradient(to top, #8a8a8a,#bebebe);
+    border-radius: 10px;
+    /*
+    fuck this, tried for like an hour to get the fucking table to only get a shadow on the chess part and not on the number on the side
+    ended up having to use a 10px x 10px svg with a single color to be able to scale the background to 90% size just enough to covers the
+    holes made by the botder radius but not the numbers on the side making to filter drop-shadow only shadow on the side of the chess tiles
+    */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect x='0' y='0' width='10' height='10' style='fill:rgb(32, 32, 32)' /%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: 85% 85%;
+    background-position: center center;
+    background-position: calc(var(--size) / 10 * 12) calc(var(--size) / 10 * 12);
+    background-clip: content-box;
+    filter: drop-shadow(0 0 20px black);
+}
+
+
+.chess_key {
+    width: var(--size);
+    height: var(--size);
+    text-align: center;
+    color: white;
+    font-size: calc(var(--size) * 0.40);
+    font-weight: 100;
+    filter: drop-shadow(black 0 0 10px);
+}
+
+.empty_chess_letter {
+
+}
+
+table tr:first-child .chess_col:first-child {
+    border-top-left-radius: var(--half_radius);
+}
+table tr:first-child .chess_col:last-child {
+    border-top-right-radius: var(--half_radius);
+}
+table tr:last-child .chess_col:first-child {
+    border-bottom-left-radius: var(--half_radius);
+}
+table tr:last-child .chess_col:last-child {
+    border-bottom-right-radius: var(--half_radius);
+}
+
+table tr:nth-child(2n) .chess_col:nth-child(2n) {
+    background: var(--odd_background);
+}
+
+table tr:nth-child(2n+1) .chess_col:nth-child(2n+1) {
+    background: var(--odd_background);
+}
+
+table tr:nth-child(2n+1) .chess_col:nth-child(2n) {
+    background: var(--even_background);
+}
+
+table tr:nth-child(2n) .chess_col:nth-child(2n+1) {
+    background: var(--even_background);
+}
+
+.chess_col {
+    width: var(--size);
+    height: var(--size);
+    border-radius: 10px;
+}
+
+@media screen and (orientation:portrait) {
+    table {
+        --size: 9vw;
+    }
+}
+
+@media screen and (orientation:landscape) {
+    table {
+        --size: 9vh;
+    }
+}
