@@ -1,24 +1,99 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400&display=swap');
 
 body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: rgb(34, 34, 34);
+    margin: 0;
+    overflow: hidden;
+    height: 100vh;
+}
+
+#wrapper {
+    background-color: #202020;
     font-family: 'Roboto', sans-serif;
+    --perspective: 4;
+    --distance: 2;
+    max-height: 100%;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    perspective: calc(1px * var(--perspective));
+    perspective-origin: 0%;
+}
+
+
+#background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    max-height: 100vh;
+    transform: translateZ(0px);
+}
+#background div {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: #303030;
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='rgb(200, 200, 200)' fill-opacity='1' d='M0,224L40,229.3C80,235,160,245,240,229.3C320,213,400,171,480,133.3C560,96,640,64,720,80C800,96,880,160,960,208C1040,256,1120,288,1200,266.7C1280,245,1360,171,1400,133.3L1440,96L1440,320L1400,320C1360,320,1280,320,1200,320C1120,320,1040,320,960,320C880,320,800,320,720,320C640,320,560,320,480,320C400,320,320,320,240,320C160,320,80,320,40,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
     background-size: cover;
     background-position: 0 100px;
     background-repeat: no-repeat;
 }
 
+#foreground {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    /*
+    Ok so im never saying anything but hate about css ever again, just complimented it,
+    and it fucking broke for the stupidest reason and in the stupidest way possible, to
+    compute the scale we use a formula which goes like this: 
+    (perspective - distance) / perspective
+    and because i was using calc function with --perspective and --distance (set in pixel)
+    it tried to scale by a number of pixel, which doesn't work. Not visually mind you, it
+    looks perfectly fine and the scaling is done right, but JUST and ONLY the paralax doesn't.
+
+    so here i am multiplying the value by 1px hopin calc can now do things right
+    */
+    transform-origin: 0;
+    transform: translateZ(calc(1px * var(--distance))) scale(calc(calc(var(--perspective) - var(--distance)) / var(--perspective)));
+}
+
+#footer:link {
+    color: grey;
+}
+
+#footer a {
+    color: grey;
+}
+
+#footer {
+    box-sizing: border-box;
+    color: white;
+    box-shadow: rgb(114, 114, 114) 0 -5px 10px;
+    width: 100vw;
+    display: flex;
+    padding: 20px;
+    padding-left: 70px;
+    background-color: #202020;
+    height: 100px;
+    position: absolute;
+    bottom: -100px;
+}
+
 table {
+    margin-top: 50px;
     border-spacing: 0;
     --radius: 10px;
     --half_radius: calc(var(--radius) / 2);
     --odd_background: linear-gradient(to top, #202020,#303030);
     --even_background: linear-gradient(to top, #8a8a8a,#bebebe);
     border-radius: 10px;
+    margin-bottom: auto;
     /*
     fuck this, tried for like an hour to get the fucking table to only get a shadow on the chess part and not on the number on the side
     ended up having to use a 10px x 10px svg with a single color to be able to scale the background to 90% size just enough to covers the
