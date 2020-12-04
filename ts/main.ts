@@ -4,7 +4,7 @@ const size = 8;
  * 0 - white
  * 1 - black
  */
-const playingSide: 0 | 1 = 0;
+const playingSide: 0 | 1 = 1;
 const chessDomMap = generateDom();
 
 // typescript really need a way to do that cleaner
@@ -132,6 +132,7 @@ function updatePieceDom(pm: PiecesMap) {
             const pieceElement = document.createElement('div');
             pieceElement.classList.add('chess_piece');
             pieceElement.classList.add(`chess_piece_${PieceType[(pm[x][y] as NotEmptyPiece).type]}`);
+            pieceElement.classList.add(`chess_piece_${(pm[x][y] as NotEmptyPiece).color}`)
             const chessSlot = chessDomMap[x][y];
             while (chessSlot.childElementCount > 0) {
                 chessSlot.removeChild(chessSlot.firstElementChild as HTMLElement);

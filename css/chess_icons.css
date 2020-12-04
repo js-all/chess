@@ -1,0 +1,43 @@
+.chess_piece {
+    width: 80%;
+    height: 80%;
+    margin: auto;
+    filter: brightness(1.4);
+}
+
+.chess_key {
+    user-select: none;
+}
+
+.chess_piece_white {
+    background: var(--even_background);
+}
+
+.chess_piece_black {
+    background: var(--odd_background);
+}
+
+.chess_piece_rook {
+    -webkit-mask: url('../chess_icons/svg/chess-rok.svg');
+    mask: url('../chess_icons/svg/chess-rok.svg');
+}
+.chess_piece_knight {
+    -webkit-mask: url('../chess_icons/svg/chess-knight.svg');
+    mask: url('../chess_icons/svg/chess-knight.svg');
+}
+.chess_piece_bishop {
+    -webkit-mask: url('../chess_icons/svg/bishop.svg');
+    mask: url('../chess_icons/svg/bishop.svg');
+}
+.chess_piece_queen {
+    -webkit-mask: url('../chess_icons/svg/chess-queen.svg');
+    mask: url('../chess_icons/svg/chess-queen.svg');
+}
+.chess_piece_king {
+    -webkit-mask: url('../chess_icons/svg/chess-king.svg');
+    mask: url('../chess_icons/svg/chess-king.svg');
+}
+.chess_piece_pawn {
+    -webkit-mask: url('../chess_icons/svg/chess-pawn.svg');
+    mask: url('../chess_icons/svg/chess-pawn.svg');
+}
