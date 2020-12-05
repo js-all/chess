@@ -1,8 +1,27 @@
 .chess_piece {
     width: 80%;
     height: 80%;
-    margin: auto;
     filter: brightness(1.4);
+}
+
+.chess_piece_wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    filter: drop-shadow(rgba(0, 0, 0, 0.418) 0 0 10px);
+    transition: 0.1s all;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+}
+
+.chess_piece_wrapper:hover {
+    filter: drop-shadow(rgba(0, 0, 0, 0.747) 0 0 10px);
+}
+
+.chess_piece_wrapper:hover .chess_piece {
+    width: 85%;
+    height: 85%;
 }
 
 .chess_key {

@@ -6,6 +6,7 @@ const size = 8;
  */
 const playingSide: 0 | 1 = 1;
 const chessDomMap = generateDom();
+const canvasOverlay = document.querySelector("#arrow_canvas") as HTMLCanvasElement;
 
 // typescript really need a way to do that cleaner
 type Tuple8<T> = [T, T, T, T, T, T, T, T];
@@ -78,7 +79,7 @@ function generateDom() {
                     tdEl.classList.add('empty_chess_letter');
                     tdEl.innerHTML = " "
                 } else {
-                    tdEl.innerHTML = lettersArray[i - 1];
+                    tdEl.innerHTML = lettersArray[playingSide ? Math.abs(i - size) : i - 1];
                 }
 
                 trEl.appendChild(tdEl);
@@ -122,22 +123,38 @@ function initBasicPieces(playSide: 0 | 1): PiecesMap {
         [WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, ],
         [WROOK, WKING, WBISHOP, WQUEEN, WKING, WBISHOP, WKNIGHT, WROOK]
     ];
-    return playSide ? res.reverse() as PiecesMap : res;
+    return playSide ? res.map(v => v.reverse()).reverse() as PiecesMap : res;
 }
 
 function updatePieceDom(pm: PiecesMap) {
     for (let x = 0; x < 8; x++) {
         for (let y = 0; y < 8; y++) {
             if (pm[x][y] === PieceType.empty) continue;
+            const pieceElWrapper = document.createElement('div');
+            pieceElWrapper.classList.add('chess_piece_wrapper');
             const pieceElement = document.createElement('div');
             pieceElement.classList.add('chess_piece');
             pieceElement.classList.add(`chess_piece_${PieceType[(pm[x][y] as NotEmptyPiece).type]}`);
             pieceElement.classList.add(`chess_piece_${(pm[x][y] as NotEmptyPiece).color}`)
+            pieceElWrapper.appendChild(pieceElement);
             const chessSlot = chessDomMap[x][y];
             while (chessSlot.childElementCount > 0) {
                 chessSlot.removeChild(chessSlot.firstElementChild as HTMLElement);
             }
-            chessSlot.appendChild(pieceElement);
+            chessSlot.appendChild(pieceElWrapper);
         }
     }
 }
+
+function updateCanvasSize() {
+    const th = TableDomEl.getBoundingClientRect().height;
+    const tw = TableDomEl.getBoundingClientRect().width;
+    canvasOverlay.style.width = tw + "px";
+    canvasOverlay.style.height = th + "px";
+    canvasOverlay.width = tw;
+    canvasOverlay.height = th;
+}
+
+updateCanvasSize();
+
+window.addEventListener('resize', updateCanvasSize);

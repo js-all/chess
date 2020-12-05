@@ -11,7 +11,7 @@ body {
     font-family: 'Roboto', sans-serif;
     --perspective: 4;
     --distance: 2;
-    max-height: 100%;
+    max-height: 100vh;
     width: 100%;
     overflow-x: hidden;
     overflow-y: scroll;
@@ -19,6 +19,12 @@ body {
     perspective-origin: 0%;
 }
 
+#arrow_canvas {
+    background-color: transparent;
+    position: absolute;
+    top:50px;
+    pointer-events: none;
+}
 
 #background {
     position: absolute;
@@ -97,30 +103,26 @@ table {
     /*
     fuck this, tried for like an hour to get the fucking table to only get a shadow on the chess part and not on the number on the side
     ended up having to use a 10px x 10px svg with a single color to be able to scale the background to 90% size just enough to covers the
-    holes made by the botder radius but not the numbers on the side making to filter drop-shadow only shadow on the side of the chess tiles
+    holes made by the border radius but not the numbers on the side making to filter drop-shadow only shadow on the side of the chess tiles
     */
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect x='0' y='0' width='10' height='10' style='fill:rgb(32, 32, 32)' /%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-size: 85% 85%;
     background-position: center center;
-    background-position: calc(var(--size) / 10 * 12) calc(var(--size) / 10 * 12);
+    background-position: 12vmin 12vmin;
     background-clip: content-box;
     filter: drop-shadow(0 0 20px black);
 }
 
 
 .chess_key {
-    width: var(--size);
-    height: var(--size);
+    width: 9vmin;
+    height: 9vmin;
     text-align: center;
     color: white;
-    font-size: calc(var(--size) * 0.40);
+    font-size: calc(9vmin * 0.40);
     font-weight: 100;
     filter: drop-shadow(black 0 0 10px);
-}
-
-.empty_chess_letter {
-
 }
 
 table tr:first-child .chess_col:first-child {
@@ -137,35 +139,25 @@ table tr:last-child .chess_col:last-child {
 }
 
 table tr:nth-child(2n) .chess_col:nth-child(2n) {
-    background: var(--odd_background);
+    background: var(--even_background);
 }
 
 table tr:nth-child(2n+1) .chess_col:nth-child(2n+1) {
-    background: var(--odd_background);
+    background: var(--even_background);
 }
 
 table tr:nth-child(2n+1) .chess_col:nth-child(2n) {
-    background: var(--even_background);
+    background: var(--odd_background);
 }
 
 table tr:nth-child(2n) .chess_col:nth-child(2n+1) {
-    background: var(--even_background);
+    background: var(--odd_background);
 }
 
 .chess_col {
-    width: var(--size);
-    height: var(--size);
+    width: 9vmin;
+    height: 9vmin;
     border-radius: 10px;
-}
-
-@media screen and (orientation:portrait) {
-    table {
-        --size: 9vw;
-    }
-}
-
-@media screen and (orientation:landscape) {
-    table {
-        --size: 9vh;
-    }
+    box-sizing: content-box;
+    padding: 0;
 }
