@@ -76,13 +76,13 @@ class Arrow {
         const centerStartPos = this.startPos.add(.5);
         const centerEndPos = this.endPos.add(.5);
         const arrowLengthReduction = .5;
+        const size = 5;
 
         Logs.set("CWPath", this.pathDirrect ? "dirrect" : "corner")
 
         if (this.pathDirrect) {
             const dirVector = this.endPos.substract(this.startPos).unit();
             const cwPerpDirVector = dirVector.perpendicular();
-            const size = 5;
             const arrowLength = 3;
             const arrowThickness = 1.5;
             const gradientEnd = 1;
@@ -111,6 +111,8 @@ class Arrow {
             ctx.stroke();
             ctx.fill();
             ctx.closePath();
+            Logs.set("perpendicular", cwPerpDirVector.toString());
+            Logs.set("centerStartPos", centerStartPos.toString());
         } else {
             ctx.fillStyle = this.style.fill;
             ctx.strokeStyle = "red";
@@ -130,6 +132,8 @@ class Arrow {
             ctx.fill();
             ctx.stroke();
             ctx.closePath();
+            Logs.set("perpendicular", CWperpendicularDirVec1.toString())
+            Logs.set("centerStartPos", centerStartPos.toString());
         }
     }
 
