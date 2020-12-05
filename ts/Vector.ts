@@ -73,6 +73,9 @@ class Vector {
     toArray(): [number, number] {
         return [this.x, this.y];
     }
+    toString() {
+        return `[${this.x}, ${this.y}]`;
+    }
     clone() {
         return new Vector(this.x, this.y);
     }

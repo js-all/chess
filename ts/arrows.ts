@@ -9,6 +9,43 @@ interface ArrowStyle {
 }
 
 class Arrow {
+    /**
+     * Logs for arrows, will display the uuid of the logging object and its "properties under it", like that:
+     * ```
+     * 4f996f47-c946-4ed6-b3ed-f4ef4fc6db56:
+     *     Path: dirrect
+     *     otherProperty: otherValue
+     * 
+     * other-uuid:
+     *     property: value
+     * ```
+     * you can set Logs by first getting the log map of the arrow you want
+     * 
+     * `const Log = Arrow.Drawlogs.get(arrow_you_want.uuid);`
+     * 
+     * then you can add properties this way:
+     * 
+     * `Log.set("property name", "property value");`
+     * 
+     * if you want to add color (chose one of the letter in the []):
+     * 
+     * `Log.set("C[UPOYWRM]property name", "property value");`
+     * 
+     * if your property start with a C
+     * 
+     * `Log.set("\\C starting property name", "value");`
+     * 
+     * Colors:
+     *  - U: blue
+     *  - P: white
+     *  - O: grey ish
+     *  - Y: yellow
+     *  - W: orange
+     *  - R: red
+     *  - M: magenta
+     * 
+     * @type Map<uuid, Map<propertyName, propertyValue>>
+     */
     static DrawLogs: Map<string, Map<string, string>> = new Map();
     static ActiveArrows: Set<Arrow> = new Set();
     startPos: Vector;
@@ -32,7 +69,6 @@ class Arrow {
      */
     draw(ctx: CanvasRenderingContext2D) {
         const Logs = Arrow.DrawLogs.get(this.uuid) as Map<string, string>;
-        Logs.set("test", "value");
         // don't render if the arrows points to itself (causes and error with the gradient)
         if (this.startPos.equals(this.endPos)) return;
         ctx.lineWidth = 3;
@@ -40,6 +76,8 @@ class Arrow {
         const centerStartPos = this.startPos.add(.5);
         const centerEndPos = this.endPos.add(.5);
         const arrowLengthReduction = .5;
+
+        Logs.set("CWPath", this.pathDirrect ? "dirrect" : "corner")
 
         if (this.pathDirrect) {
             const dirVector = this.endPos.substract(this.startPos).unit();
@@ -99,18 +137,30 @@ class Arrow {
         Arrow.ActiveArrows.forEach(v => {
             v.draw(ctx);
         });
-        if (logs) {
+        let logsAreEmpty = true;
+        logs && Arrow.DrawLogs.forEach(v => logsAreEmpty = logsAreEmpty && v.size < 1);
+        if (logs && !logsAreEmpty) {
+            const Colors = {
+                U: "rgb(0, 153, 255)",
+                P: "rgb(255, 255, 255)",
+                O: "rgba(255, 255, 255, 0.5)",
+                Y: "rgb(255, 204, 0)",
+                W: "rgb(255, 115, 0)",
+                R: "rgb(255, 0, 0)",
+                M: "rgb(255, 0, 162)"
+            }
             let logStrings: string[] = [];
-            let newLines = 0;
             Arrow.DrawLogs.forEach((v, k) => {
 
                 if (v.size > 0) {
                     // adding letters at the start to remove them later and know what type of line it is
-                    logStrings.push("N", "N" + k + ":");
-                    newLines++;
+                    logStrings.push("U", "U" + k + ":");
                     v.forEach((lv, lk) => {
-                        logStrings.push("L    " + lk + ": " + lv);
-                        newLines++;
+                        let strk = "";
+                        if(lk[0] === "\\" && lk[1] === "C") {strk = "P    "+lk.substring(1);}
+                        else if(lk[0] === "C") {strk = lk[1] + "    " + lk.substring(2);}
+                        else {strk = "P    " + lk;}
+                        logStrings.push(strk + ": " + lv);
                     });
                 }
             });
@@ -118,8 +168,8 @@ class Arrow {
             ctx.font = `${getCanvasChessUnits().x / 6}px Consolas`
             let maxWidth = 0;
             let totalHeight = 20;
-            const LogsWithTopOffset: {text: string, offset: number, type: "uuid" | "property" | "other"}[] = logStrings.map(v => {
-                const type = v[0] === "N" ? "uuid" : v[0] === "L" ? "property" : "other";
+            const LogsWithTopOffset = logStrings.map(v => {
+                const color = v[0];
                 const metrics = ctx.measureText(v);
                 const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent + 8;
                 totalHeight += height
@@ -127,16 +177,16 @@ class Arrow {
                 return {
                     text: v.substring(1),
                     offset: height,
-                    type: type
+                    color: color
                 }
             });
-
-            ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+            ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
             ctx.fillRect(0, 0, maxWidth + 20, totalHeight);
             let actualOffset = 20;
             for (let i = 0; i < LogsWithTopOffset.length; i++) {
                 const stringWithOffset = LogsWithTopOffset[i];
-                ctx.fillStyle = stringWithOffset.type === "uuid" ? "rgb(0, 153, 255)" : stringWithOffset.type === "property" ? "white" : "rgba(255, 255, 255, 0.5)";
+                ///@ts-expect-error
+                ctx.fillStyle = Colors[stringWithOffset.color] || "white";
                 ctx.fillText(stringWithOffset.text, 10, actualOffset);
                 actualOffset += stringWithOffset.offset;
             }
