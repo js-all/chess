@@ -24,6 +24,7 @@ body {
     position: absolute;
     top:50px;
     pointer-events: none;
+    z-index: -2;
 }
 
 #background {
@@ -92,6 +93,7 @@ body {
 }
 
 table {
+    z-index: -3;
     margin-top: 50px;
     border-spacing: 0;
     --radius: 10px;

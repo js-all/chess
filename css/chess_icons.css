@@ -1,7 +1,9 @@
 .chess_piece {
     width: 80%;
     height: 80%;
-    filter: brightness(1.4);
+    position: absolute;
+    z-index: 1000000;
+    
 }
 
 .chess_piece_wrapper {
@@ -13,6 +15,7 @@
     cursor: pointer;
     align-items: center;
     justify-content: center;
+    z-index: 1000;
 }
 
 .chess_piece_wrapper:hover {
@@ -22,6 +25,7 @@
 .chess_piece_wrapper:hover .chess_piece {
     width: 85%;
     height: 85%;
+    z-index: 1;
 }
 
 .chess_key {
@@ -29,10 +33,12 @@
 }
 
 .chess_piece_white {
+    filter: brightness(1.2);
     background: var(--even_background);
 }
 
 .chess_piece_black {
+    filter: brightness(1.4);
     background: var(--odd_background);
 }
 

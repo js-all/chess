@@ -4,7 +4,7 @@ const size = 8;
  * 0 - white
  * 1 - black
  */
-const playingSide: 0 | 1 = 1;
+const playingSide: 0 | 1 = 0;
 const chessDomMap = generateDom();
 const canvasOverlay = document.querySelector("#arrow_canvas") as HTMLCanvasElement;
 
