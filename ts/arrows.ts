@@ -1,6 +1,6 @@
 const canvasOverlay = document.querySelector("#arrow_canvas") as HTMLCanvasElement;
 const ctx = canvasOverlay.getContext('2d') as CanvasRenderingContext2D;
-let showLogs = false;
+let showLogs = true;
 interface ArrowStyle {
     outline: string,
     fill: string
@@ -10,6 +10,12 @@ interface ArrowState {
     startPos: Vector,
     endPos: Vector
 }
+
+interface TransitionArrowState {
+    startPos: Vector | null,
+    endPos: Vector | null
+}
+
 
 class Arrow {
     /**
@@ -84,7 +90,7 @@ class Arrow {
     transitionStartDate = new Date(0);
     transitionDuration = 100;
     transitionFromState: ArrowState;
-    transitionToState: ArrowState;
+    transitionToState: TransitionArrowState;
     /**
      * 
      * @param startPos the Arrow's start position (in chess coordinates)
@@ -109,20 +115,25 @@ class Arrow {
         Arrow.ActiveArrows.add(this);
         Arrow.DrawLogs.set(this.uuid, new Map());
     }
-    get actualState(): ArrowState {
+    getActualState(): ArrowState {
         return {
             startPos: this.startPos.clone(),
             endPos: this.endPos.clone()
         }
     }
-    set actualState(state: ArrowState) {
-        this.startPos = state.startPos.clone();
-        this.endPos = state.endPos.clone();
+    setActualState(state: TransitionArrowState) {
+        this.startPos = state.startPos === null ? this.startPos : state.startPos.clone();
+        this.endPos = state.endPos === null ? this.endPos : state.endPos.clone();
     }
-    interpolateTo(state: ArrowState) {
+    interpolateTo(state: TransitionArrowState) {
         this.transitionStartDate = new Date();
-        this.transitionFromState = this.actualState;
+        this.transitionFromState = this.getActualState();
         this.transitionToState = state;
+    }
+    resetInterpolation() {
+        this.transitionStartDate = new Date(0);
+        this.transitionFromState = this.getActualState();
+        this.transitionToState = this.getActualState();
     }
     /**
      * draw the arrow
@@ -138,10 +149,14 @@ class Arrow {
         Logs.set("factor", transitionFactor + "")
 
         if(transitionFactor < 1) {
-            this.startPos = Vector.lerp(this.transitionFromState.startPos, this.transitionToState.startPos, transitionFactor);
-            this.endPos = Vector.lerp(this.transitionFromState.endPos, this.transitionToState.endPos, transitionFactor);
+            if(this.transitionToState.startPos !== null) {
+                this.startPos = Vector.lerp(this.transitionFromState.startPos, this.transitionToState.startPos, transitionFactor);
+            }
+            if(this.transitionToState.endPos !== null) {
+                this.endPos = Vector.lerp(this.transitionFromState.endPos, this.transitionToState.endPos, transitionFactor);
+            }
         } else {
-            this.actualState = this.transitionToState;
+            this.setActualState(this.transitionToState);
         }
 
         // don't render if the arrows points to itself (causes and error with the gradient)

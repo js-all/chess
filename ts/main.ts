@@ -6,7 +6,7 @@ const size = 8;
  */
 const playingSide: 0 | 1 = 0;
 const chessDomMap = generateDom();
-const actualMousePos = new Vector(0, 0);
+const actualMousePos = new Vector(-1, -1);
 const KeysPressed = new Set<string>();
 // typescript really need a way to do that cleaner
 type Tuple8<T> = [T, T, T, T, T, T, T, T];
@@ -121,7 +121,7 @@ function initBasicPieces(playSide: 0 | 1): PiecesMap {
         [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, ],
         [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, ],
         [WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, ],
-        [WROOK, WKING, WBISHOP, WQUEEN, WKING, WBISHOP, WKNIGHT, WROOK]
+        [WROOK, WKNIGHT, WBISHOP, WQUEEN, WKING, WBISHOP, WKNIGHT, WROOK]
     ];
     return playSide ? res.map(v => v.reverse()).reverse() as PiecesMap : res;
 }
@@ -170,22 +170,84 @@ window.addEventListener('keyup', e => {
     }
     onKeyUpdate();
 });
+TableDomEl.addEventListener('mouseleave', e => {
+    actualMousePos.set(new Vector(-1, -1));
+    MainLog.set("mouse pos", actualMousePos.toString());
+});
 function onKeyUpdate() {
     if(KeysPressed.has("h")) {
         showLogs = !showLogs;
     }
 }
-Arrow.DrawLogs.set("Mouse", new Map());
-const MouseLog = Arrow.DrawLogs.get("Mouse") as Map<string, string>;
 
+const moveArrow = new Arrow(new Vector(0, 0), new Vector(0, 0), true, Arrow.DefaultSyles.move);
 
-MouseLog.set("pos", actualMousePos.toString());
+Arrow.DrawLogs.set("Main", new Map());
+const MainLog = Arrow.DrawLogs.get("Main") as Map<string, string>;
+
+let selectedPiece: Vector = new Vector(-1, -1);
+
+window.addEventListener('click', e => {
+    const usedUnselected = selectedPiece.equals(new Vector(-1, -1));
+
+    // reset old selected piece
+    if(!selectedPiece.equals(new Vector(-1, -1))) {
+        const selx = selectedPiece.x;
+        const sely = selectedPiece.y;
+        chessDomMap[sely][selx].classList.remove("chess_selected");
+    }
+
+    // will be -1 -1 if click out of the chess board or if already selected
+    selectedPiece = selectedPiece.equals(actualMousePos) ? new Vector(-1, -1) : actualMousePos.clone();
+    const selectedPieceType = piecesMap[selectedPiece.y][selectedPiece.x];
+    if(selectedPieceType === PEMPTY) selectedPiece = new Vector(-1, -1);
+
+    if(!selectedPiece.equals(new Vector(-1, -1))) {
+        const selPieceType = selectedPieceType as NotEmptyPiece;
+        const selx = selectedPiece.x;
+        const sely = selectedPiece.y;
+        chessDomMap[sely][selx].classList.add("chess_selected");
+
+        const dirrect = selPieceType.type !== PieceType.knight;
+        moveArrow.pathDirrect = dirrect;
+        if(!usedUnselected) {
+            moveArrow.interpolateTo({
+                startPos: selectedPiece.clone(),
+                endPos: actualMousePos.clone()
+            })
+        } else {
+                moveArrow.startPos = selectedPiece.clone();
+                moveArrow.endPos = actualMousePos.clone();
+                moveArrow.resetInterpolation();
+        }
+    } else {
+        moveArrow.interpolateTo({
+            startPos: moveArrow.startPos,
+            endPos: moveArrow.startPos
+        })
+    }
+
+    MainLog.set("selected piece", selectedPiece.toString());
+});
+
+MainLog.set("mouse pos", actualMousePos.toString());
+MainLog.set("selected piece", selectedPiece.toString());
 
 for(let x = 0; x < 8;x++) {
     for(let y = 0; y < 8;y++) {
         chessDomMap[x][y].addEventListener('mouseover', e => {
+            if(!actualMousePos.equals(new Vector(-1, -1))) {
+                chessDomMap[actualMousePos.y][actualMousePos.x].classList.remove('chess_hover');
+            }
             actualMousePos.set(new Vector(y, x));
-            MouseLog.set("pos", actualMousePos.toString());
+            MainLog.set("mouse pos", actualMousePos.toString());
+            if(!selectedPiece.equals(new Vector(-1, -1))) {
+                chessDomMap[actualMousePos.y][actualMousePos.x].classList.add('chess_hover');
+                moveArrow.interpolateTo({
+                    startPos: selectedPiece.clone(),
+                    endPos: actualMousePos.clone()
+                })
+            }
         });
     }
 }

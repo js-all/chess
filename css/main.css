@@ -160,6 +160,8 @@ table tr:nth-child(2n) .chess_col:nth-child(2n+1) {
     width: 9vmin;
     height: 9vmin;
     border-radius: 10px;
-    box-sizing: content-box;
+    box-sizing: border-box;
+    border: none;
     padding: 0;
+    transition: .1s all;
 }

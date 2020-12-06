@@ -6,6 +6,14 @@
     
 }
 
+.chess_selected {
+    border: 5px white solid;
+}
+
+.chess_hover {
+    border: 5px solid rgb(117, 117, 117);
+}
+
 .chess_piece_wrapper {
     width: 100%;
     height: 100%;
@@ -23,8 +31,8 @@
 }
 
 .chess_piece_wrapper:hover .chess_piece {
-    width: 85%;
-    height: 85%;
+    width: 80%;
+    height: 80%;
     z-index: 1;
 }
 
