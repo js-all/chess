@@ -81,7 +81,7 @@ class Arrow {
             outline: "rgba(0, 0, 0, 0.7)",
             fill: "transparent"
         }
-    }
+    };
     startPos: Vector;
     endPos: Vector;
     pathDirrect: boolean;
@@ -91,6 +91,9 @@ class Arrow {
     transitionDuration = 100;
     transitionFromState: ArrowState;
     transitionToState: TransitionArrowState;
+    transitionBezierCurve: BezierCurveData;
+
+
     /**
      * 
      * @param startPos the Arrow's start position (in chess coordinates)
@@ -98,7 +101,15 @@ class Arrow {
      * @param pathDirrect if the arrows goes straight to its end postion or take turns
      * @param style define the style of the arrow
      */
-    constructor(startPos: Vector, endPos: Vector, pathDirrect: boolean, style: ArrowStyle) {
+    constructor(startPos: Vector, endPos: Vector, pathDirrect: boolean, style: ArrowStyle, transitionBezierCurve: BezierCurveData = {
+        points: {
+            p1: new Vector(0, 0),
+            p2: new Vector(0, 0),
+            p3: new Vector(0, 1),
+            p4: new Vector(0, 1)
+        },
+        component: "y coordinate"
+    }) {
         this.startPos = startPos;
         this.endPos = endPos;
         this.pathDirrect = pathDirrect;
@@ -111,6 +122,7 @@ class Arrow {
             endPos: endPos,
             startPos: startPos
         };
+        this.transitionBezierCurve = transitionBezierCurve;
 
         Arrow.ActiveArrows.add(this);
         Arrow.DrawLogs.set(this.uuid, new Map());
@@ -126,8 +138,10 @@ class Arrow {
         this.endPos = state.endPos === null ? this.endPos : state.endPos.clone();
     }
     interpolateTo(state: TransitionArrowState) {
-        this.transitionStartDate = new Date();
-        this.transitionFromState = this.getActualState();
+        // if((new Date().getTime() - this.transitionStartDate.getTime()) / this.transitionDuration >= 1) {
+            this.transitionFromState = this.getActualState();
+            this.transitionStartDate = new Date();
+        // }
         this.transitionToState = state;
     }
     resetInterpolation() {
@@ -144,20 +158,22 @@ class Arrow {
     draw(ctx: CanvasRenderingContext2D) {
         const Logs = Arrow.DrawLogs.get(this.uuid) as Map<string, string>;
 
-        const transitionFactor= (new Date().getTime() - this.transitionStartDate.getTime()) / this.transitionDuration;
+        let transitionFactor = (new Date().getTime() - this.transitionStartDate.getTime()) / this.transitionDuration;
+        transitionFactor = transitionFactor > 1 ? 1 : transitionFactor;
 
-        Logs.set("factor", transitionFactor + "")
-
-        if(transitionFactor < 1) {
-            if(this.transitionToState.startPos !== null) {
-                this.startPos = Vector.lerp(this.transitionFromState.startPos, this.transitionToState.startPos, transitionFactor);
-            }
-            if(this.transitionToState.endPos !== null) {
-                this.endPos = Vector.lerp(this.transitionFromState.endPos, this.transitionToState.endPos, transitionFactor);
-            }
-        } else {
-            this.setActualState(this.transitionToState);
+        
+        
+        //@ts-expect-error
+        const bezierFactor = bezierInterpolation(this.transitionBezierCurve, transitionFactor) as number;
+        if (this.transitionToState.startPos !== null) {
+            this.startPos = Vector.lerp(this.transitionFromState.startPos, this.transitionToState.startPos, bezierFactor);
         }
+        if (this.transitionToState.endPos !== null) {
+            this.endPos = Vector.lerp(this.transitionFromState.endPos, this.transitionToState.endPos, bezierFactor);
+        }
+        
+        Logs.set("bezier factor", bezierFactor + "");
+        Logs.set("factor", transitionFactor + "");
 
         // don't render if the arrows points to itself (causes and error with the gradient)
         if (this.startPos.equals(this.endPos)) return;
@@ -175,7 +191,7 @@ class Arrow {
         const units = getChessToRealCoordUnits();
 
         //don't render if the arrow is too short either because the tip clip with the shaft otherwise
-        if(vecFromStartToEnd.length() < 0.3) return;
+        if (vecFromStartToEnd.length() < 0.3) return;
 
         ctx.lineWidth = units.x / 15;
 
@@ -351,6 +367,8 @@ class Arrow {
                 // expect error because typescript doesn't know the first chr is a color and matches the object (and return grey if it doesn't)
                 ///@ts-expect-error
                 ctx.fillStyle = Colors[stringWithOffset.color] || "grey";
+                ctx.textAlign = "start";
+                ctx.textBaseline = "middle"
                 ctx.fillText(stringWithOffset.text, 10, currentOffset);
                 currentOffset += stringWithOffset.offset;
             }
@@ -366,7 +384,7 @@ class Arrow {
         Arrow.ActiveArrows.forEach(v => {
             v.draw(ctx);
         });
-        if(logs) {
+        if (logs) {
             this.renderLogs();
         }
     }
@@ -392,6 +410,16 @@ class Arrow {
     function draw() {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         Arrow.renderArrows(ctx, showLogs);
+
+        // visuallizeBezierCurve(
+        //     new Vector(0, 0),
+        //     new Vector(0, 0),
+        //     new Vector(0, 1),
+        //     new Vector(0, 1.),
+        //     2000,
+        //     200
+        // );
+
         requestAnimationFrame(draw);
     }
     draw();
@@ -414,20 +442,93 @@ function ChessToRealCoordinates(chessCoord: Vector, unit?: Vector): Vector {
     return chessCoord.add(1).multiply(_unit);
 }
 
-function ranFloat(min: number, max: number) {
-    return Math.random() * (max - min) + min;
+/**
+ * visuallize a bezier curve with animation, meant for developpement to be put in a draw loop of a canvas
+ * @param p1 bezier frist point
+ * @param p2 bezier second point
+ * @param p3 bezier thrid point
+ * @param p4 bezier fourth point
+ * @param period for the moving blue point how long does it takes to reach the end
+ * @param resolution how many points drawn for the line
+ */
+function visuallizeBezierCurve(p1: Vector, p2: Vector, p3: Vector, p4: Vector, period: number, resolution: number) {
+    try {
+        const units = getChessToRealCoordUnits();
+
+        const P1 = p1.substract(new Vector(0, 1)).multiply(new Vector(1, -1)).multiply(2).add(1).multiply(units);
+        const P2 = p2.substract(new Vector(0, 1)).multiply(new Vector(1, -1)).multiply(2).add(1).multiply(units);
+        const P3 = p3.substract(new Vector(0, 1)).multiply(new Vector(1, -1)).multiply(2).add(1).multiply(units);
+        const P4 = p4.substract(new Vector(0, 1)).multiply(new Vector(1, -1)).multiply(2).add(1).multiply(units);
+
+        const interp = (t: number) => bezierInterpolation(
+            P1,
+            P2,
+            P3,
+            P4,
+            t,
+            "point"
+        );
+        units.y = units.x;
+
+        for (let i = 0; i < resolution; i++) {
+            const point = interp(i / resolution);
+            ctx.fillStyle = "red";
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, units.x / 100, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+
+            ctx.fillStyle = "red";
+            ctx.beginPath();
+            ctx.arc(3 * units.x + (2 * units.x) / resolution * i, point.y, units.x / 100, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+
+            ctx.fillStyle = "red";
+            ctx.beginPath();
+            ctx.arc(5 * units.x + (2 * units.x) / resolution * i, -(point.x - (units.x * 4)), units.x / 100, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+
+            ctx.fillStyle = "red";
+            ctx.beginPath();
+            ctx.arc(7 * units.x + (2 * units.x) / resolution * i, -((P1.substract(point).length() / Math.hypot(2 * units.x, 2 * units.y) * (2 * units.x)) - 2 * units.y) + units.y, units.x / 100, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+        }
+        const t = new Date().getTime() % period;
+        const bpoint = interp(t / period);
+        ctx.fillStyle = "blue";
+        ctx.beginPath();
+        ctx.arc(bpoint.x, bpoint.y, units.x / 20, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+
+        ctx.fillStyle = "blue";
+        ctx.beginPath();
+        ctx.arc(3 * units.x + (2 * units.x) / period * t, bpoint.y, units.x / 20, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+
+        ctx.fillStyle = "blue";
+        ctx.beginPath();
+        ctx.arc(5 * units.x + (2 * units.x) / period * t, -(bpoint.x - (units.x * 4)), units.x / 20, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+
+        ctx.fillStyle = "blue";
+        ctx.beginPath();
+        ctx.arc(7 * units.x + (2 * units.x) / period * t, -((P1.substract(bpoint).length() / Math.hypot(2 * units.x, 2 * units.y) * (2 * units.x)) - 2 * units.y) + units.y, units.x / 20, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+
+        ctx.fillStyle = "red";
+        ctx.font = `${units.x / 3}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("curve", units.x * 2, units.y * 3.2);
+        ctx.fillText("y coord", units.x * 4, units.y * 3.2);
+        ctx.fillText("x coord", units.x * 6, units.y * 3.2);
+        ctx.fillText("length", units.x * 8, units.y * 3.2);
+    } catch (e) { };
 }
-
-function ranInt(min: number, max: number) {
-    return Math.floor(ranFloat(min, max + 1));
-}
-
-function ranRgb(alpha = false) {
-    if (alpha) {
-        return `rgba(${ranFloat(0, 255)}, ${ranFloat(0, 255)}, ${ranFloat(0, 255)}, ${ranFloat(0, 1)})`;
-    } else {
-        return `rgb(${ranFloat(0, 255)}, ${ranFloat(0, 255)}, ${ranFloat(0, 255)})`;
-    }
-}
-
-

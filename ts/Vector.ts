@@ -87,6 +87,9 @@ class Vector {
     static lerp(v1: Vector, v2: Vector, factor: number): Vector {
         return v1.add(v2.substract(v1).multiply(factor));
     }
+    static isVector(vec: Object) {
+        return vec instanceof Vector;
+    }
     init(x: number, y: number): Vector {
         this.x = x;
         this.y = y;

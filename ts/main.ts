@@ -170,9 +170,23 @@ window.addEventListener('keyup', e => {
     }
     onKeyUpdate();
 });
-TableDomEl.addEventListener('mouseleave', e => {
-    actualMousePos.set(new Vector(-1, -1));
-    MainLog.set("mouse pos", actualMousePos.toString());
+let lastInside = false;
+let lastInsideMouseCoordinates = new Vector(-1, -1);
+window.addEventListener('mousemove', e => {
+    const clientRect = TableDomEl.getBoundingClientRect();
+    const tableRelativeCoord = new Vector(e.clientX, e.clientY).substract(new Vector(clientRect.left, clientRect.top));
+    const units = getChessToRealCoordUnits();
+
+    const outside = (tableRelativeCoord.x > clientRect.width || tableRelativeCoord.y > clientRect.height || tableRelativeCoord.x < units.x || tableRelativeCoord.y < units.y);
+
+    if(outside && lastInside) {
+        lastInsideMouseCoordinates = actualMousePos.clone();
+        lastInside = false;
+        actualMousePos.set(new Vector(-1, -1));
+    } else if(!outside) {
+        lastInside = true;
+    }
+    
 });
 function onKeyUpdate() {
     if(KeysPressed.has("h")) {
@@ -188,18 +202,28 @@ const MainLog = Arrow.DrawLogs.get("Main") as Map<string, string>;
 let selectedPiece: Vector = new Vector(-1, -1);
 
 window.addEventListener('click', e => {
+    if(!lastInsideMouseCoordinates.equals(new Vector(-1, -1))) {
+        chessDomMap[lastInsideMouseCoordinates.y][lastInsideMouseCoordinates.x].classList.remove('chess_hover');
+    }
+    
     const usedUnselected = selectedPiece.equals(new Vector(-1, -1));
-
+    
     // reset old selected piece
     if(!selectedPiece.equals(new Vector(-1, -1))) {
         const selx = selectedPiece.x;
         const sely = selectedPiece.y;
         chessDomMap[sely][selx].classList.remove("chess_selected");
     }
-
+    
     // will be -1 -1 if click out of the chess board or if already selected
     selectedPiece = selectedPiece.equals(actualMousePos) ? new Vector(-1, -1) : actualMousePos.clone();
-    const selectedPieceType = piecesMap[selectedPiece.y][selectedPiece.x];
+    const selectedPieceType =
+        selectedPiece.x >= 0 &&
+        selectedPiece.y >= 0 &&
+        selectedPiece.y < piecesMap.length &&
+        selectedPiece.x < piecesMap[selectedPiece.y].length ?
+            piecesMap[selectedPiece.y][selectedPiece.x] :
+            PEMPTY;
     if(selectedPieceType === PEMPTY) selectedPiece = new Vector(-1, -1);
 
     if(!selectedPiece.equals(new Vector(-1, -1))) {

@@ -5,14 +5,14 @@
     z-index: 1000000;
     
 }
+.chess_hover {
+    border: 5px solid rgb(117, 117, 117);
+}
 
 .chess_selected {
     border: 5px white solid;
 }
 
-.chess_hover {
-    border: 5px solid rgb(117, 117, 117);
-}
 
 .chess_piece_wrapper {
     width: 100%;
