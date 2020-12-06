@@ -1,9 +1,14 @@
+const canvasOverlay = document.querySelector("#arrow_canvas") as HTMLCanvasElement;
 const ctx = canvasOverlay.getContext('2d') as CanvasRenderingContext2D;
-
+let showLogs = false;
 interface ArrowStyle {
     outline: string,
-    fill: string,
-    twoWay: boolean
+    fill: string
+}
+
+interface ArrowState {
+    startPos: Vector,
+    endPos: Vector
 }
 
 class Arrow {
@@ -49,11 +54,37 @@ class Arrow {
      * all actively drawn arrows
      */
     static ActiveArrows: Set<Arrow> = new Set();
+    static DefaultSyles = {
+        move: {
+            outline: "transparent",
+            fill: "rgb(200, 200, 200)"
+        },
+        wrong: {
+            outline: "transparent",
+            fill: "rgba(200, 0, 0)"
+        },
+        capture: {
+            outline: "rgb(200, 0, 0)",
+            fill: "rgba(200, 200, 200)"
+        },
+        custom: {
+            outline: "transparent",
+            fill: "rgba(255, 90, 0, .8)"
+        },
+        check: {
+            outline: "rgba(0, 0, 0, 0.7)",
+            fill: "transparent"
+        }
+    }
     startPos: Vector;
     endPos: Vector;
     pathDirrect: boolean;
     style: ArrowStyle;
     uuid: string = uuid4();
+    transitionStartDate = new Date(0);
+    transitionDuration = 100;
+    transitionFromState: ArrowState;
+    transitionToState: ArrowState;
     /**
      * 
      * @param startPos the Arrow's start position (in chess coordinates)
@@ -66,9 +97,32 @@ class Arrow {
         this.endPos = endPos;
         this.pathDirrect = pathDirrect;
         this.style = style;
+        this.transitionFromState = {
+            endPos: endPos,
+            startPos: startPos
+        };
+        this.transitionToState = {
+            endPos: endPos,
+            startPos: startPos
+        };
 
         Arrow.ActiveArrows.add(this);
         Arrow.DrawLogs.set(this.uuid, new Map());
+    }
+    get actualState(): ArrowState {
+        return {
+            startPos: this.startPos.clone(),
+            endPos: this.endPos.clone()
+        }
+    }
+    set actualState(state: ArrowState) {
+        this.startPos = state.startPos.clone();
+        this.endPos = state.endPos.clone();
+    }
+    interpolateTo(state: ArrowState) {
+        this.transitionStartDate = new Date();
+        this.transitionFromState = this.actualState;
+        this.transitionToState = state;
     }
     /**
      * draw the arrow
@@ -79,21 +133,37 @@ class Arrow {
     draw(ctx: CanvasRenderingContext2D) {
         const Logs = Arrow.DrawLogs.get(this.uuid) as Map<string, string>;
 
+        const transitionFactor= (new Date().getTime() - this.transitionStartDate.getTime()) / this.transitionDuration;
+
+        Logs.set("factor", transitionFactor + "")
+
+        if(transitionFactor < 1) {
+            this.startPos = Vector.lerp(this.transitionFromState.startPos, this.transitionToState.startPos, transitionFactor);
+            this.endPos = Vector.lerp(this.transitionFromState.endPos, this.transitionToState.endPos, transitionFactor);
+        } else {
+            this.actualState = this.transitionToState;
+        }
+
         // don't render if the arrows points to itself (causes and error with the gradient)
         if (this.startPos.equals(this.endPos)) return;
 
-        ctx.lineWidth = 3;
 
         const centerStartPos = this.startPos.add(.5);
         const centerEndPos = this.endPos.add(.5);
         const vecFromStartToEnd = this.endPos.substract(this.startPos);
         const thickness = 5;
-        const arrowLength = 3;
-        const arrowLengthReduction = .5;
+        const tipOfArrowLength = .3;
+        const arrowLengthReduction = .3;
         const TipOfArrowThickness = 1.5;
-        const gradientStartOffset = 1;
+        const gradientStartOffset = 2;
         const gradientEnd = 1;
         const units = getChessToRealCoordUnits();
+
+        //don't render if the arrow is too short either because the tip clip with the shaft otherwise
+        if(vecFromStartToEnd.length() < 0.3) return;
+
+        ctx.lineWidth = units.x / 15;
+
         /**
          * shorthand for
          * ```ts
@@ -133,7 +203,7 @@ class Arrow {
             ctx.moveTo(...CTRCTA(centerStartPos.substract(CWPerpendicularDirVectorOverThickness)));
             ctx.lineTo(...CTRCTA(centerEndPosWithLengthReduction.substract(CWPerpendicularDirVectorOverThickness)));
             ctx.lineTo(...CTRCTA(centerEndPosWithLengthReduction.substract(CWPerpendicularDirVector.divide(thickness).multiply(TipOfArrowThickness))));
-            ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVector.multiply(arrowLengthReduction / arrowLength))));
+            ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVector.multiply(arrowLengthReduction - tipOfArrowLength))));
             ctx.lineTo(...CTRCTA(centerEndPosWithLengthReduction.add(CWPerpendicularDirVector.divide(thickness).multiply(TipOfArrowThickness))));
             ctx.lineTo(...CTRCTA(centerEndPosWithLengthReduction.add(CWPerpendicularDirVectorOverThickness)));
             ctx.lineTo(...CTRCTA(centerStartPos.add(CWPerpendicularDirVectorOverThickness)));
@@ -173,7 +243,7 @@ class Arrow {
             ctx.fill();
             ctx.closePath();
 
-            // drawn the first shaft
+            // draw the first shaft
             ctx.beginPath();
             ctx.moveTo(...CTRCTA(centerStartPos.substract(CWperpendicularDirVec1.divide(thickness))));
             ctx.lineTo(...CTRCTA(centerFirstEndPos.substract(dirVec1U.multiply(arrowThickness / 2)).substract(CWperpendicularDirVec1.divide(thickness))));
@@ -190,7 +260,7 @@ class Arrow {
             ctx.moveTo(...CTRCTA(secondStartPosCenter.substract(CWperpendicularDirVec2.divide(thickness))));
             ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction)).substract(CWperpendicularDirVec2.divide(thickness))));
             ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction)).substract(CWperpendicularDirVec2.divide(thickness).multiply(TipOfArrowThickness))));
-            ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction / arrowLength))));
+            ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction - tipOfArrowLength))));
             ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction)).add(CWperpendicularDirVec2.divide(thickness).multiply(TipOfArrowThickness))));
             ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction)).add(CWperpendicularDirVec2.divide(thickness))));
             ctx.lineTo(...CTRCTA(secondStartPosCenter.add(CWperpendicularDirVec2.divide(thickness))));
@@ -201,20 +271,11 @@ class Arrow {
             ctx.closePath();
         }
     }
-    /**
-     * render all active arrows
-     * @param ctx the canvas's context
-     * @param logs if logs (in top left conrner) should be rendered
-     */
-    static renderArrows(ctx: CanvasRenderingContext2D, logs = false) {
-        Arrow.ActiveArrows.forEach(v => {
-            v.draw(ctx);
-        });
+    static renderLogs() {
         // test if logs are empty
         let logsAreEmpty = true;
-        logs && Arrow.DrawLogs.forEach(v => logsAreEmpty = logsAreEmpty && v.size < 1);
-
-        if (logs && !logsAreEmpty) {
+        Arrow.DrawLogs.forEach(v => logsAreEmpty = logsAreEmpty && v.size < 1);
+        if (!logsAreEmpty) {
             const Colors = {
                 U: "rgb(0, 153, 255)",
                 P: "rgb(255, 255, 255)",
@@ -232,7 +293,7 @@ class Arrow {
                     // adding letters at the start to remove them later and know what color it should be
                     // add two line with the name
                     logStrings.push("U", "U" + k + ":");
-                    
+
                     v.forEach((lv, lk) => {
                         let strk = "";
                         //deal with color
@@ -282,6 +343,19 @@ class Arrow {
         }
     }
     /**
+     * render all active arrows
+     * @param ctx the canvas's context
+     * @param logs if logs (in top left conrner) should be rendered
+     */
+    static renderArrows(ctx: CanvasRenderingContext2D, logs = false) {
+        Arrow.ActiveArrows.forEach(v => {
+            v.draw(ctx);
+        });
+        if(logs) {
+            this.renderLogs();
+        }
+    }
+    /**
      * remove arrow from active arrow
      */
     remove() {
@@ -302,7 +376,7 @@ class Arrow {
 {
     function draw() {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        Arrow.renderArrows(ctx, true);
+        Arrow.renderArrows(ctx, showLogs);
         requestAnimationFrame(draw);
     }
     draw();
@@ -324,3 +398,21 @@ function ChessToRealCoordinates(chessCoord: Vector, unit?: Vector): Vector {
     const _unit = unit === undefined ? getChessToRealCoordUnits() : unit;
     return chessCoord.add(1).multiply(_unit);
 }
+
+function ranFloat(min: number, max: number) {
+    return Math.random() * (max - min) + min;
+}
+
+function ranInt(min: number, max: number) {
+    return Math.floor(ranFloat(min, max + 1));
+}
+
+function ranRgb(alpha = false) {
+    if (alpha) {
+        return `rgba(${ranFloat(0, 255)}, ${ranFloat(0, 255)}, ${ranFloat(0, 255)}, ${ranFloat(0, 1)})`;
+    } else {
+        return `rgb(${ranFloat(0, 255)}, ${ranFloat(0, 255)}, ${ranFloat(0, 255)})`;
+    }
+}
+
+

@@ -6,8 +6,8 @@ const size = 8;
  */
 const playingSide: 0 | 1 = 0;
 const chessDomMap = generateDom();
-const canvasOverlay = document.querySelector("#arrow_canvas") as HTMLCanvasElement;
-
+const actualMousePos = new Vector(0, 0);
+const KeysPressed = new Set<string>();
 // typescript really need a way to do that cleaner
 type Tuple8<T> = [T, T, T, T, T, T, T, T];
 type Tuple8x8<T> = Tuple8<Tuple8<T>>;
@@ -114,7 +114,7 @@ function generateDom() {
 
 function initBasicPieces(playSide: 0 | 1): PiecesMap {
     const res: PiecesMap = [
-        [BROOK, BKING, BBISHOP, BQUEEN, BKING, BBISHOP, BKNIGHT, BROOK],
+        [BROOK, BKNIGHT, BBISHOP, BQUEEN, BKING, BBISHOP, BKNIGHT, BROOK],
         [BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, ],
         [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, ],
         [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, ],
@@ -129,7 +129,11 @@ function initBasicPieces(playSide: 0 | 1): PiecesMap {
 function updatePieceDom(pm: PiecesMap) {
     for (let x = 0; x < 8; x++) {
         for (let y = 0; y < 8; y++) {
-            if (pm[x][y] === PieceType.empty) continue;
+            const chessSlot = chessDomMap[x][y];
+            while (chessSlot.childElementCount > 0) {
+                chessSlot.removeChild(chessSlot.firstElementChild as HTMLElement);
+            }
+            if (pm[x][y] === PieceType.empty)  continue;
             const pieceElWrapper = document.createElement('div');
             pieceElWrapper.classList.add('chess_piece_wrapper');
             const pieceElement = document.createElement('div');
@@ -137,10 +141,6 @@ function updatePieceDom(pm: PiecesMap) {
             pieceElement.classList.add(`chess_piece_${PieceType[(pm[x][y] as NotEmptyPiece).type]}`);
             pieceElement.classList.add(`chess_piece_${(pm[x][y] as NotEmptyPiece).color}`)
             pieceElWrapper.appendChild(pieceElement);
-            const chessSlot = chessDomMap[x][y];
-            while (chessSlot.childElementCount > 0) {
-                chessSlot.removeChild(chessSlot.firstElementChild as HTMLElement);
-            }
             chessSlot.appendChild(pieceElWrapper);
         }
     }
@@ -158,3 +158,34 @@ function updateCanvasSize() {
 updateCanvasSize();
 
 window.addEventListener('resize', updateCanvasSize);
+window.addEventListener('keydown', e => {
+    if(!KeysPressed.has(e.key)) {
+        KeysPressed.add(e.key);
+    }
+    onKeyUpdate();
+});
+window.addEventListener('keyup', e => {
+    if(KeysPressed.has(e.key)) {
+        KeysPressed.delete(e.key);
+    }
+    onKeyUpdate();
+});
+function onKeyUpdate() {
+    if(KeysPressed.has("h")) {
+        showLogs = !showLogs;
+    }
+}
+Arrow.DrawLogs.set("Mouse", new Map());
+const MouseLog = Arrow.DrawLogs.get("Mouse") as Map<string, string>;
+
+
+MouseLog.set("pos", actualMousePos.toString());
+
+for(let x = 0; x < 8;x++) {
+    for(let y = 0; y < 8;y++) {
+        chessDomMap[x][y].addEventListener('mouseover', e => {
+            actualMousePos.set(new Vector(y, x));
+            MouseLog.set("pos", actualMousePos.toString());
+        });
+    }
+}
