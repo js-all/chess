@@ -1,5 +1,4 @@
 const ctx = canvasOverlay.getContext('2d') as CanvasRenderingContext2D;
-const arrows = [];
 
 interface ArrowStyle {
     outline: string,
@@ -46,17 +45,28 @@ class Arrow {
      * @type Map<uuid, Map<propertyName, propertyValue>>
      */
     static DrawLogs: Map<string, Map<string, string>> = new Map();
+    /**
+     * all actively drawn arrows
+     */
     static ActiveArrows: Set<Arrow> = new Set();
     startPos: Vector;
     endPos: Vector;
     pathDirrect: boolean;
     style: ArrowStyle;
     uuid: string = uuid4();
+    /**
+     * 
+     * @param startPos the Arrow's start position (in chess coordinates)
+     * @param endPos the Arrow's end postion (in chess coordiantes)
+     * @param pathDirrect if the arrows goes straight to its end postion or take turns
+     * @param style define the style of the arrow
+     */
     constructor(startPos: Vector, endPos: Vector, pathDirrect: boolean, style: ArrowStyle) {
         this.startPos = startPos;
         this.endPos = endPos;
         this.pathDirrect = pathDirrect;
         this.style = style;
+
         Arrow.ActiveArrows.add(this);
         Arrow.DrawLogs.set(this.uuid, new Map());
     }
@@ -68,121 +78,134 @@ class Arrow {
      */
     draw(ctx: CanvasRenderingContext2D) {
         const Logs = Arrow.DrawLogs.get(this.uuid) as Map<string, string>;
+
         // don't render if the arrows points to itself (causes and error with the gradient)
         if (this.startPos.equals(this.endPos)) return;
+
         ctx.lineWidth = 3;
 
         const centerStartPos = this.startPos.add(.5);
         const centerEndPos = this.endPos.add(.5);
-        const arrowLengthReduction = .5;
         const vecFromStartToEnd = this.endPos.substract(this.startPos);
-        const size = 5;
-        const TipOfArrowThickness = 1.5;
+        const thickness = 5;
         const arrowLength = 3;
+        const arrowLengthReduction = .5;
+        const TipOfArrowThickness = 1.5;
         const gradientStartOffset = 1;
         const gradientEnd = 1;
+        const units = getChessToRealCoordUnits();
+        /**
+         * shorthand for
+         * ```ts
+         * ChessToRealCoordinates(..., units).toArray();
+         * ```
+         * @param v vector
+         */
+        const CTRCTA = (v: Vector) => ChessToRealCoordinates(v, units).toArray();
 
-        Logs.set("CWPath", this.pathDirrect ? "dirrect" : "corner")
+        const makeArrowColorGradient = (centerStartPoint: Vector, unitDirVector: Vector, centerEndPoint: Vector) => {
+            const arrowLength = centerEndPoint.substract(centerStartPoint).length() - arrowLengthReduction;
+            const cnvCoordStart = ChessToRealCoordinates(centerStartPoint.substract(unitDirVector.multiply(gradientStartOffset)));
+            const cnvCoordEnd = ChessToRealCoordinates(centerStartPoint.add(unitDirVector.multiply(arrowLength / gradientEnd)));
+            const strokeGradient = ctx.createLinearGradient(cnvCoordStart.x, cnvCoordStart.y, cnvCoordEnd.x, cnvCoordEnd.y);
+            const fillGradient = ctx.createLinearGradient(cnvCoordStart.x, cnvCoordStart.y, cnvCoordEnd.x, cnvCoordEnd.y);
 
+            strokeGradient.addColorStop(0, "transparent");
+            strokeGradient.addColorStop(1, this.style.outline);
+            fillGradient.addColorStop(0, "transparent");
+            fillGradient.addColorStop(1, this.style.fill);
+
+            ctx.fillStyle = fillGradient;
+            ctx.strokeStyle = strokeGradient;
+        }
+
+        // render dirrect even if arrow is not if it goes straight from start to end on a single axis (avoid rendering corner)
         if (this.pathDirrect || vecFromStartToEnd.x === 0 || vecFromStartToEnd.y === 0) {
+
             const dirVector = this.endPos.substract(this.startPos).unit();
-            const cwPerpDirVector = dirVector.perpendicular();
-            {
-                const arrowLength = centerEndPos.substract(centerStartPos).length() - arrowLengthReduction;
-                const cnvCoordStart = ChessToCanvasCoordinates(centerStartPos.substract(dirVector.multiply(gradientStartOffset)));
-                const cnvCoordEnd = ChessToCanvasCoordinates(centerStartPos.add(dirVector.multiply(arrowLength / gradientEnd)));
-                const strokeGradient = ctx.createLinearGradient(cnvCoordStart.x, cnvCoordStart.y, cnvCoordEnd.x, cnvCoordEnd.y);
-                const fillGradient = ctx.createLinearGradient(cnvCoordStart.x, cnvCoordStart.y, cnvCoordEnd.x, cnvCoordEnd.y);
-                strokeGradient.addColorStop(0, "transparent");
-                strokeGradient.addColorStop(1, this.style.outline);
-                fillGradient.addColorStop(0, "transparent");
-                fillGradient.addColorStop(1, this.style.fill);
-                ctx.fillStyle = fillGradient;
-                ctx.strokeStyle = strokeGradient;
-            }
+            const CWPerpendicularDirVector = dirVector.perpendicular();
+            const CWPerpendicularDirVectorOverThickness = CWPerpendicularDirVector.divide(thickness)
+            const centerEndPosWithLengthReduction = centerEndPos.substract(dirVector.multiply(arrowLengthReduction));
+
+            makeArrowColorGradient(centerStartPos, dirVector, centerEndPos);
+
             ctx.beginPath();
-            ctx.moveTo(...(ChessToCanvasCoordinates(centerStartPos.substract(cwPerpDirVector.divide(size))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerEndPos.substract(dirVector.multiply(arrowLengthReduction)).substract(cwPerpDirVector.divide(size))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerEndPos.substract(dirVector.multiply(arrowLengthReduction)).substract(cwPerpDirVector.divide(size).multiply(TipOfArrowThickness))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerEndPos.substract(dirVector.multiply(arrowLengthReduction / arrowLength))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerEndPos.substract(dirVector.multiply(arrowLengthReduction)).add(cwPerpDirVector.divide(size).multiply(TipOfArrowThickness))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerEndPos.substract(dirVector.multiply(arrowLengthReduction)).add(cwPerpDirVector.divide(size))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerStartPos.add(cwPerpDirVector.divide(size))).toArray()));
+            ctx.moveTo(...CTRCTA(centerStartPos.substract(CWPerpendicularDirVectorOverThickness)));
+            ctx.lineTo(...CTRCTA(centerEndPosWithLengthReduction.substract(CWPerpendicularDirVectorOverThickness)));
+            ctx.lineTo(...CTRCTA(centerEndPosWithLengthReduction.substract(CWPerpendicularDirVector.divide(thickness).multiply(TipOfArrowThickness))));
+            ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVector.multiply(arrowLengthReduction / arrowLength))));
+            ctx.lineTo(...CTRCTA(centerEndPosWithLengthReduction.add(CWPerpendicularDirVector.divide(thickness).multiply(TipOfArrowThickness))));
+            ctx.lineTo(...CTRCTA(centerEndPosWithLengthReduction.add(CWPerpendicularDirVectorOverThickness)));
+            ctx.lineTo(...CTRCTA(centerStartPos.add(CWPerpendicularDirVectorOverThickness)));
             ctx.stroke();
             ctx.fill();
             ctx.closePath();
         } else {
             // create a vector with the largest component of vecFromStartToEnd.
             const dirVec1 = Math.abs(vecFromStartToEnd.x) > Math.abs(vecFromStartToEnd.y) ? new Vector(vecFromStartToEnd.x, 0) : new Vector(0, vecFromStartToEnd.y);
+            const dirVec1U = dirVec1.unit();
             const CWperpendicularDirVec1 = dirVec1.perpendicular().unit();
             const firstEndPos = this.startPos.add(dirVec1);
-            const firstEndPosCenter = firstEndPos.add(.5);
+            const centerFirstEndPos = firstEndPos.add(.5);
+
             // create a vector with the smallest component of vecFromStartToEnd. (<= here to not find  the same vector twice)
             const dirVec2 = Math.abs(vecFromStartToEnd.x) <= Math.abs(vecFromStartToEnd.y) ? new Vector(vecFromStartToEnd.x, 0) : new Vector(0, vecFromStartToEnd.y);
+            const dirVec2U = dirVec2.unit();
             const CWperpendicularDirVec2 = dirVec2.perpendicular().unit();
-            const arrowThickness = CWperpendicularDirVec1.divide(size).length() * 2;
-            const secondStartPosCenter = firstEndPos.add(dirVec2.unit().multiply(arrowThickness / 2)).add(.5);
+            const arrowThickness = CWperpendicularDirVec1.divide(thickness).length() * 2;
+            const secondStartPosCenter = firstEndPos.add(dirVec2U.multiply(arrowThickness / 2)).add(.5);
 
-            {
-                const arrowLength = firstEndPosCenter.substract(centerStartPos).length() - arrowLengthReduction;
-                const cnvCoordStart = ChessToCanvasCoordinates(centerStartPos.substract(dirVec1.unit().multiply(gradientStartOffset)));
-                const cnvCoordEnd = ChessToCanvasCoordinates(centerStartPos.add(dirVec1.unit().multiply(arrowLength / gradientEnd)));
-                const strokeGradient = ctx.createLinearGradient(cnvCoordStart.x, cnvCoordStart.y, cnvCoordEnd.x, cnvCoordEnd.y);
-                const fillGradient = ctx.createLinearGradient(cnvCoordStart.x, cnvCoordStart.y, cnvCoordEnd.x, cnvCoordEnd.y);
-                strokeGradient.addColorStop(0, "transparent");
-                strokeGradient.addColorStop(1, this.style.outline);
-                fillGradient.addColorStop(0, "transparent");
-                fillGradient.addColorStop(1, this.style.fill);
-                ctx.fillStyle = fillGradient;
-                ctx.strokeStyle = strokeGradient;
-            }
-            
-            // to know on chich side the corner is
+            makeArrowColorGradient(centerStartPos, dirVec1U, centerFirstEndPos);
+
+            // to know on which side the corner is
             const dot = CWperpendicularDirVec1.dot(dirVec2);
             //(dot / Math.abs(dot)) to get -1 or 1 depending on the sign of the dot, -x/|x| = -1 x/|x| = 1 (whith x positive)
             const orientation = dot / Math.abs(dot);
-            const arcCoord = ChessToCanvasCoordinates(firstEndPosCenter.substract(dirVec1.unit().multiply(arrowThickness/2)).add(CWperpendicularDirVec1.divide(size * orientation)));
-            const canvasChessUnits = getCanvasChessUnits();
+            const arcCoord = ChessToRealCoordinates(centerFirstEndPos.substract(dirVec1U.multiply(arrowThickness / 2)).add(CWperpendicularDirVec1.divide(thickness * orientation)), units);
 
+
+            //draw the rounded corner
             ctx.beginPath();
-            ctx.ellipse(arcCoord.x, arcCoord.y, canvasChessUnits.x * arrowThickness, canvasChessUnits.y * arrowThickness, 0, CWperpendicularDirVec1.toAngle() + Math.PI / 2 * ((orientation + 1) / 2), CWperpendicularDirVec2.toAngle() - Math.PI / 2  * ((orientation + 1) / 2)) ;
+            ctx.ellipse(arcCoord.x, arcCoord.y, units.x * arrowThickness, units.y * arrowThickness, 0, CWperpendicularDirVec1.toAngle() + Math.PI / 2 * ((orientation + 1) / 2), CWperpendicularDirVec2.toAngle() - Math.PI / 2 * ((orientation + 1) / 2));
             ctx.stroke();
             ctx.moveTo(arcCoord.x, arcCoord.y);
-            ctx.ellipse(arcCoord.x, arcCoord.y, canvasChessUnits.x * arrowThickness, canvasChessUnits.y * arrowThickness, 0, CWperpendicularDirVec1.toAngle() + Math.PI / 2 * ((orientation + 1) / 2), CWperpendicularDirVec2.toAngle() - Math.PI / 2  * ((orientation + 1) / 2)) ;
+            ctx.ellipse(arcCoord.x, arcCoord.y, units.x * arrowThickness, units.y * arrowThickness, 0, CWperpendicularDirVec1.toAngle() + Math.PI / 2 * ((orientation + 1) / 2), CWperpendicularDirVec2.toAngle() - Math.PI / 2 * ((orientation + 1) / 2));
             ctx.fill();
             ctx.closePath();
 
+            // drawn the first shaft
             ctx.beginPath();
-            ctx.moveTo(...(ChessToCanvasCoordinates(centerStartPos.substract(CWperpendicularDirVec1.divide(size))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(firstEndPosCenter.substract(dirVec1.unit().multiply(arrowThickness/2)).substract(CWperpendicularDirVec1.divide(size))).toArray()));
-            ctx.moveTo(...(ChessToCanvasCoordinates(firstEndPosCenter.substract(dirVec1.unit().multiply(arrowThickness/2)).add(CWperpendicularDirVec1.divide(size))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerStartPos.add(CWperpendicularDirVec1.divide(size))).toArray()));
+            ctx.moveTo(...CTRCTA(centerStartPos.substract(CWperpendicularDirVec1.divide(thickness))));
+            ctx.lineTo(...CTRCTA(centerFirstEndPos.substract(dirVec1U.multiply(arrowThickness / 2)).substract(CWperpendicularDirVec1.divide(thickness))));
+            ctx.moveTo(...CTRCTA(centerFirstEndPos.substract(dirVec1U.multiply(arrowThickness / 2)).add(CWperpendicularDirVec1.divide(thickness))));
+            ctx.lineTo(...CTRCTA(centerStartPos.add(CWperpendicularDirVec1.divide(thickness))));
             ctx.stroke();
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerStartPos.substract(CWperpendicularDirVec1.divide(size))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(firstEndPosCenter.substract(dirVec1.unit().multiply(arrowThickness/2)).substract(CWperpendicularDirVec1.divide(size))).toArray()));
+            ctx.lineTo(...CTRCTA(centerStartPos.substract(CWperpendicularDirVec1.divide(thickness))));
+            ctx.lineTo(...CTRCTA(centerFirstEndPos.substract(dirVec1U.multiply(arrowThickness / 2)).substract(CWperpendicularDirVec1.divide(thickness))));
             ctx.fill();
             ctx.closePath();
 
-
+            // the second shaft with the tip of the arrow
             ctx.beginPath();
-            ctx.moveTo(...(ChessToCanvasCoordinates(secondStartPosCenter.substract(CWperpendicularDirVec2.divide(size))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerEndPos.substract(dirVec2.unit().multiply(arrowLengthReduction)).substract(CWperpendicularDirVec2.divide(size))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerEndPos.substract(dirVec2.unit().multiply(arrowLengthReduction)).substract(CWperpendicularDirVec2.divide(size).multiply(TipOfArrowThickness))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerEndPos.substract(dirVec2.unit().multiply(arrowLengthReduction / arrowLength))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerEndPos.substract(dirVec2.unit().multiply(arrowLengthReduction)).add(CWperpendicularDirVec2.divide(size).multiply(TipOfArrowThickness))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerEndPos.substract(dirVec2.unit().multiply(arrowLengthReduction)).add(CWperpendicularDirVec2.divide(size))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(secondStartPosCenter.add(CWperpendicularDirVec2.divide(size))).toArray()));
+            ctx.moveTo(...CTRCTA(secondStartPosCenter.substract(CWperpendicularDirVec2.divide(thickness))));
+            ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction)).substract(CWperpendicularDirVec2.divide(thickness))));
+            ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction)).substract(CWperpendicularDirVec2.divide(thickness).multiply(TipOfArrowThickness))));
+            ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction / arrowLength))));
+            ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction)).add(CWperpendicularDirVec2.divide(thickness).multiply(TipOfArrowThickness))));
+            ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction)).add(CWperpendicularDirVec2.divide(thickness))));
+            ctx.lineTo(...CTRCTA(secondStartPosCenter.add(CWperpendicularDirVec2.divide(thickness))));
             ctx.stroke();
-            ctx.lineTo(...(ChessToCanvasCoordinates(secondStartPosCenter.substract(CWperpendicularDirVec2.divide(size))).toArray()));
-            ctx.lineTo(...(ChessToCanvasCoordinates(centerEndPos.substract(dirVec2.unit().multiply(arrowLengthReduction)).substract(CWperpendicularDirVec2.divide(size))).toArray()));
+            ctx.lineTo(...CTRCTA(secondStartPosCenter.substract(CWperpendicularDirVec2.divide(thickness))));
+            ctx.lineTo(...CTRCTA(centerEndPos.substract(dirVec2U.multiply(arrowLengthReduction)).substract(CWperpendicularDirVec2.divide(thickness))));
             ctx.fill();
             ctx.closePath();
-
-            Logs.set("dir vec 1", dirVec1.toString());
-            Logs.set("dir vec 2", dirVec2.toString());
         }
     }
-
+    /**
+     * render all active arrows
+     * @param ctx the canvas's context
+     * @param logs if logs (in top left conrner) should be rendered
+     */
     static renderArrows(ctx: CanvasRenderingContext2D, logs = false) {
         Arrow.ActiveArrows.forEach(v => {
             v.draw(ctx);
@@ -207,15 +230,15 @@ class Arrow {
                     logStrings.push("U", "U" + k + ":");
                     v.forEach((lv, lk) => {
                         let strk = "";
-                        if(lk[0] === "\\" && lk[1] === "C") {strk = "P    "+lk.substring(1);}
-                        else if(lk[0] === "C") {strk = lk[1] + "    " + lk.substring(2);}
-                        else {strk = "P    " + lk;}
+                        if (lk[0] === "\\" && lk[1] === "C") { strk = "P    " + lk.substring(1); }
+                        else if (lk[0] === "C") { strk = lk[1] + "    " + lk.substring(2); }
+                        else { strk = "P    " + lk; }
                         logStrings.push(strk + ": " + lv);
                     });
                 }
             });
             logStrings.splice(0, 1);
-            ctx.font = `${getCanvasChessUnits().x / 6}px Consolas`
+            ctx.font = `${getChessToRealCoordUnits().x / 6}px Consolas`
             let maxWidth = 0;
             let totalHeight = 20;
             const LogsWithTopOffset = logStrings.map(v => {
@@ -223,7 +246,7 @@ class Arrow {
                 const metrics = ctx.measureText(v);
                 const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent + 8;
                 totalHeight += height
-                if(maxWidth < metrics.width) maxWidth = metrics.width;
+                if (maxWidth < metrics.width) maxWidth = metrics.width;
                 return {
                     text: v.substring(1),
                     offset: height,
@@ -243,9 +266,21 @@ class Arrow {
 
         }
     }
-
-    destroy() {
-        Arrow.ActiveArrows.delete(this);
+    /**
+     * remove arrow from active arrow
+     */
+    remove() {
+        if (Arrow.ActiveArrows.has(this)) {
+            Arrow.ActiveArrows.delete(this);
+        }
+    }
+    /**
+     * add arrrow back to active arrow
+     */
+    addBack() {
+        if (!Arrow.ActiveArrows.has(this)) {
+            Arrow.ActiveArrows.add(this);
+        }
     }
 }
 
@@ -258,15 +293,14 @@ class Arrow {
     draw();
 }
 
-function getCanvasChessUnits() {
+function getChessToRealCoordUnits() {
     const tileClienRect = chessDomMap[0][0].getBoundingClientRect();
     return new Vector(tileClienRect.width, tileClienRect.height);
 }
 
-function ChessToCanvasCoordinates(chessCoord: Vector): Vector {
-    const unit = getCanvasChessUnits();
-    const cc = chessCoord.add(1);
-    return cc.multiply(unit);
+function ChessToRealCoordinates(chessCoord: Vector, unit?: Vector): Vector {
+    const _unit = unit === undefined ? getChessToRealCoordUnits() : unit;
+    return chessCoord.add(1).multiply(_unit);
 }
 
 let arrow = new Arrow(new Vector(0, 0), new Vector(0, 0), true, { fill: "rgba(255, 255, 255, 0.5)", outline: "rgba(0, 0, 0, 0.5)", twoWay: false });
