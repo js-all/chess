@@ -210,8 +210,10 @@ class Arrow {
         Arrow.ActiveArrows.forEach(v => {
             v.draw(ctx);
         });
+        // test if logs are empty
         let logsAreEmpty = true;
         logs && Arrow.DrawLogs.forEach(v => logsAreEmpty = logsAreEmpty && v.size < 1);
+
         if (logs && !logsAreEmpty) {
             const Colors = {
                 U: "rgb(0, 153, 255)",
@@ -222,46 +224,59 @@ class Arrow {
                 R: "rgb(255, 0, 0)",
                 M: "rgb(255, 0, 162)"
             }
+
             let logStrings: string[] = [];
             Arrow.DrawLogs.forEach((v, k) => {
-
+                // otherwise don't add the name or any logs
                 if (v.size > 0) {
-                    // adding letters at the start to remove them later and know what type of line it is
+                    // adding letters at the start to remove them later and know what color it should be
+                    // add two line with the name
                     logStrings.push("U", "U" + k + ":");
+                    
                     v.forEach((lv, lk) => {
                         let strk = "";
+                        //deal with color
                         if (lk[0] === "\\" && lk[1] === "C") { strk = "P    " + lk.substring(1); }
                         else if (lk[0] === "C") { strk = lk[1] + "    " + lk.substring(2); }
                         else { strk = "P    " + lk; }
+                        // push the string
                         logStrings.push(strk + ": " + lv);
                     });
                 }
             });
+            // remove first blank line
             logStrings.splice(0, 1);
             ctx.font = `${getChessToRealCoordUnits().x / 6}px Consolas`
+            // to make the background black box the right size
             let maxWidth = 0;
             let totalHeight = 20;
+
             const LogsWithTopOffset = logStrings.map(v => {
                 const color = v[0];
                 const metrics = ctx.measureText(v);
+                // + 8 for line height
                 const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent + 8;
                 totalHeight += height
                 if (maxWidth < metrics.width) maxWidth = metrics.width;
                 return {
+                    // rmeove first chr as it is already stored in color
                     text: v.substring(1),
                     offset: height,
                     color: color
                 }
             });
+            // draw the background
             ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
             ctx.fillRect(0, 0, maxWidth + 20, totalHeight);
-            let actualOffset = 20;
+
+            let currentOffset = 20;
             for (let i = 0; i < LogsWithTopOffset.length; i++) {
                 const stringWithOffset = LogsWithTopOffset[i];
+                // expect error because typescript doesn't know the first chr is a color and matches the object (and return grey if it doesn't)
                 ///@ts-expect-error
-                ctx.fillStyle = Colors[stringWithOffset.color] || "white";
-                ctx.fillText(stringWithOffset.text, 10, actualOffset);
-                actualOffset += stringWithOffset.offset;
+                ctx.fillStyle = Colors[stringWithOffset.color] || "grey";
+                ctx.fillText(stringWithOffset.text, 10, currentOffset);
+                currentOffset += stringWithOffset.offset;
             }
 
         }
@@ -293,35 +308,19 @@ class Arrow {
     draw();
 }
 
+/**
+ * get the size (in pixel, real coordinates) of a chess Tile
+ */
 function getChessToRealCoordUnits() {
     const tileClienRect = chessDomMap[0][0].getBoundingClientRect();
     return new Vector(tileClienRect.width, tileClienRect.height);
 }
-
+/**
+ * compute the real (in px) coordinate of a point in chess coordinates
+ * @param chessCoord the coordinates, in chess coordinates
+ * @param unit chess units (obtained with getChesToRealCoordUnits) to avoid computing them each time if they don't change
+ */
 function ChessToRealCoordinates(chessCoord: Vector, unit?: Vector): Vector {
     const _unit = unit === undefined ? getChessToRealCoordUnits() : unit;
     return chessCoord.add(1).multiply(_unit);
-}
-
-let arrow = new Arrow(new Vector(0, 0), new Vector(0, 0), true, { fill: "rgba(255, 255, 255, 0.5)", outline: "rgba(0, 0, 0, 0.5)", twoWay: false });
-let arrow2 = new Arrow(new Vector(0, 0), new Vector(0, 0), false, { fill: "rgba(255, 255, 255, 0.5)", outline: "rgba(0, 0, 0, 0.5)", twoWay: false });
-new Arrow(new Vector(0, 0), new Vector(2, 5), false, { fill: "rgba(255, 255, 255, 0.5)", outline: "rgba(0, 0, 0, 0.5)", twoWay: false });
-
-
-function onSlotClick(pos: Vector, start = true) {
-    if (!start) {
-        arrow.endPos = pos;
-        arrow2.endPos = pos;
-    } else {
-        arrow.startPos = pos;
-        arrow2.startPos = pos;
-    }
-
-}
-
-for (let y = 0; y < 8; y++) {
-    for (let x = 0; x < 8; x++) {
-        chessDomMap[y][x].addEventListener('mousedown', e => { onSlotClick(new Vector(x, y), e.button === 2) });
-        chessDomMap[y][x].addEventListener("contextmenu", e => { e.preventDefault() });
-    }
 }
