@@ -1,6 +1,6 @@
 const canvasOverlay = document.querySelector("#arrow_canvas") as HTMLCanvasElement;
 const ctx = canvasOverlay.getContext('2d') as CanvasRenderingContext2D;
-let showLogs = true;
+let showLogs = false;
 interface ArrowStyle {
     outline: string,
     fill: string

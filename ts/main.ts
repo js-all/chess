@@ -115,12 +115,12 @@ function generateDom() {
 function initBasicPieces(playSide: 0 | 1): PiecesMap {
     const res: PiecesMap = [
         [BROOK, BKNIGHT, BBISHOP, BQUEEN, BKING, BBISHOP, BKNIGHT, BROOK],
-        [BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, ],
-        [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, ],
-        [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, ],
-        [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, ],
-        [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, ],
-        [WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, ],
+        [BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN, BPAWN,],
+        [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY,],
+        [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY,],
+        [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY,],
+        [PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY, PEMPTY,],
+        [WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN, WPAWN,],
         [WROOK, WKNIGHT, WBISHOP, WQUEEN, WKING, WBISHOP, WKNIGHT, WROOK]
     ];
     return playSide ? res.map(v => v.reverse()).reverse() as PiecesMap : res;
@@ -133,7 +133,7 @@ function updatePieceDom(pm: PiecesMap) {
             while (chessSlot.childElementCount > 0) {
                 chessSlot.removeChild(chessSlot.firstElementChild as HTMLElement);
             }
-            if (pm[x][y] === PieceType.empty)  continue;
+            if (pm[x][y] === PieceType.empty) continue;
             const pieceElWrapper = document.createElement('div');
             pieceElWrapper.classList.add('chess_piece_wrapper');
             const pieceElement = document.createElement('div');
@@ -159,13 +159,13 @@ updateCanvasSize();
 
 window.addEventListener('resize', updateCanvasSize);
 window.addEventListener('keydown', e => {
-    if(!KeysPressed.has(e.key)) {
+    if (!KeysPressed.has(e.key)) {
         KeysPressed.add(e.key);
     }
     onKeyUpdate();
 });
 window.addEventListener('keyup', e => {
-    if(KeysPressed.has(e.key)) {
+    if (KeysPressed.has(e.key)) {
         KeysPressed.delete(e.key);
     }
     onKeyUpdate();
@@ -179,17 +179,20 @@ window.addEventListener('mousemove', e => {
 
     const outside = (tableRelativeCoord.x > clientRect.width || tableRelativeCoord.y > clientRect.height || tableRelativeCoord.x < units.x || tableRelativeCoord.y < units.y);
 
-    if(outside && lastInside) {
+    if (outside && lastInside) {
         lastInsideMouseCoordinates = actualMousePos.clone();
         lastInside = false;
         actualMousePos.set(new Vector(-1, -1));
-    } else if(!outside) {
+    } else if (!outside) {
+        if (!lastInside && !lastInsideMouseCoordinates.equals(new Vector(-1, -1))) {
+            chessDomMap[lastInsideMouseCoordinates.y][lastInsideMouseCoordinates.x].classList.remove('chess_hover');
+        }
         lastInside = true;
     }
-    
+
 });
 function onKeyUpdate() {
-    if(KeysPressed.has("h")) {
+    if (KeysPressed.has("h")) {
         showLogs = !showLogs;
     }
 }
@@ -200,33 +203,39 @@ Arrow.DrawLogs.set("Main", new Map());
 const MainLog = Arrow.DrawLogs.get("Main") as Map<string, string>;
 
 let selectedPiece: Vector = new Vector(-1, -1);
+let lastPossibleMovesDomElements: HTMLTableDataCellElement[] = [];
+let acutalPossibleMoves: Move[] = [];
 
 window.addEventListener('click', e => {
-    if(!lastInsideMouseCoordinates.equals(new Vector(-1, -1))) {
+    if (!lastInsideMouseCoordinates.equals(new Vector(-1, -1))) {
         chessDomMap[lastInsideMouseCoordinates.y][lastInsideMouseCoordinates.x].classList.remove('chess_hover');
     }
-    
+
+    for(let i of lastPossibleMovesDomElements) {
+        i.classList.remove("chess_possible_move");
+    }
+
     const usedUnselected = selectedPiece.equals(new Vector(-1, -1));
-    
+
     // reset old selected piece
-    if(!selectedPiece.equals(new Vector(-1, -1))) {
+    if (!selectedPiece.equals(new Vector(-1, -1))) {
         const selx = selectedPiece.x;
         const sely = selectedPiece.y;
         chessDomMap[sely][selx].classList.remove("chess_selected");
     }
-    
+
     // will be -1 -1 if click out of the chess board or if already selected
     selectedPiece = selectedPiece.equals(actualMousePos) ? new Vector(-1, -1) : actualMousePos.clone();
     const selectedPieceType =
         selectedPiece.x >= 0 &&
-        selectedPiece.y >= 0 &&
-        selectedPiece.y < piecesMap.length &&
-        selectedPiece.x < piecesMap[selectedPiece.y].length ?
+            selectedPiece.y >= 0 &&
+            selectedPiece.y < piecesMap.length &&
+            selectedPiece.x < piecesMap[selectedPiece.y].length ?
             piecesMap[selectedPiece.y][selectedPiece.x] :
             PEMPTY;
-    if(selectedPieceType === PEMPTY) selectedPiece = new Vector(-1, -1);
+    if (selectedPieceType === PEMPTY) selectedPiece = new Vector(-1, -1);
 
-    if(!selectedPiece.equals(new Vector(-1, -1))) {
+    if (!selectedPiece.equals(new Vector(-1, -1))) {
         const selPieceType = selectedPieceType as NotEmptyPiece;
         const selx = selectedPiece.x;
         const sely = selectedPiece.y;
@@ -234,16 +243,24 @@ window.addEventListener('click', e => {
 
         const dirrect = selPieceType.type !== PieceType.knight;
         moveArrow.pathDirrect = dirrect;
-        if(!usedUnselected) {
+        if (!usedUnselected) {
             moveArrow.interpolateTo({
                 startPos: selectedPiece.clone(),
                 endPos: actualMousePos.clone()
             })
         } else {
-                moveArrow.startPos = selectedPiece.clone();
-                moveArrow.endPos = actualMousePos.clone();
-                moveArrow.resetInterpolation();
+            moveArrow.startPos = selectedPiece.clone();
+            moveArrow.endPos = actualMousePos.clone();
+            moveArrow.resetInterpolation();
         }
+
+        acutalPossibleMoves = getPossiblesMoves(selectedPiece, piecesMap);
+        for(let i of acutalPossibleMoves) {
+            const domEl = chessDomMap[i.performOnto.y][i.performOnto.x];
+            domEl.classList.add("chess_possible_move");
+            lastPossibleMovesDomElements.push(domEl);
+        }
+
     } else {
         moveArrow.interpolateTo({
             startPos: moveArrow.startPos,
@@ -257,21 +274,133 @@ window.addEventListener('click', e => {
 MainLog.set("mouse pos", actualMousePos.toString());
 MainLog.set("selected piece", selectedPiece.toString());
 
-for(let x = 0; x < 8;x++) {
-    for(let y = 0; y < 8;y++) {
+for (let x = 0; x < 8; x++) {
+    for (let y = 0; y < 8; y++) {
         chessDomMap[x][y].addEventListener('mouseover', e => {
-            if(!actualMousePos.equals(new Vector(-1, -1))) {
+            if (!actualMousePos.equals(new Vector(-1, -1))) {
                 chessDomMap[actualMousePos.y][actualMousePos.x].classList.remove('chess_hover');
             }
             actualMousePos.set(new Vector(y, x));
             MainLog.set("mouse pos", actualMousePos.toString());
-            if(!selectedPiece.equals(new Vector(-1, -1))) {
+            if (!selectedPiece.equals(new Vector(-1, -1))) {
                 chessDomMap[actualMousePos.y][actualMousePos.x].classList.add('chess_hover');
                 moveArrow.interpolateTo({
                     startPos: selectedPiece.clone(),
                     endPos: actualMousePos.clone()
-                })
+                });
+                moveArrow.style = Arrow.DefaultSyles.wrong;
+                for(let i of acutalPossibleMoves) {
+                    if(i.performOnto.equals(actualMousePos)) {
+                        moveArrow.style = Arrow.DefaultSyles.move;
+                        break;
+                    }
+                }
             }
         });
+    }
+}
+
+interface Move {
+    performFrom: Vector,
+    performOnto: Vector,
+    type: "move" | "capture" | "check"
+}
+
+
+function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap): Move[] {
+    // no moves possible from an empty piece
+    if (pm[pieceCoordinates.y][pieceCoordinates.x] === PEMPTY) return [];
+    // of the chess board
+    const isOutside = (pos: Vector) => pos.x < 0 || pos.y < 0 || pos.x > 7 || pos.y > 7;
+    // don't return anything if piece doesn't exist
+    if (isOutside(pieceCoordinates)) return [];
+    const getCross = (from: Vector, length: number = 8) => {
+        const resTiles: Vector[] = [];
+        for (let i = 1; i <= length; i++) {
+            let newTile = from.add(new Vector(i, 0));
+            if (!isOutside(newTile)) resTiles.push(newTile);
+            newTile = from.add(new Vector(-i, 0));
+            if (!isOutside(newTile)) resTiles.push(newTile);
+            newTile = from.add(new Vector(0, i));
+            if (!isOutside(newTile)) resTiles.push(newTile);
+            newTile = from.add(new Vector(0, -i));
+            if (!isOutside(newTile)) resTiles.push(newTile);
+        }
+        return resTiles;
+    };
+    const getDiagonalCross = (from: Vector, length: number = 8) => {
+        const resTiles: Vector[] = [];
+        for (let i = 1; i <= length; i++) {
+            let newTile = from.add(new Vector(i, i));
+            if (!isOutside(newTile)) resTiles.push(newTile);
+            newTile = from.add(new Vector(-i, i));
+            if (!isOutside(newTile)) resTiles.push(newTile);
+            newTile = from.add(new Vector(i, -i));
+            if (!isOutside(newTile)) resTiles.push(newTile);
+            newTile = from.add(new Vector(-i, -i));
+            if (!isOutside(newTile)) resTiles.push(newTile);
+        }
+        return resTiles;
+    };
+    switch ((pm[pieceCoordinates.y][pieceCoordinates.x] as NotEmptyPiece).type) {
+        case PieceType.bishop:
+            return getDiagonalCross(pieceCoordinates).map(v => ({
+                performFrom: pieceCoordinates,
+                performOnto: v,
+                type: "move"
+            }));
+        case PieceType.rook:
+            return getCross(pieceCoordinates).map(v => ({
+                performFrom: pieceCoordinates,
+                performOnto: v,
+                type: "move"
+            }));
+        case PieceType.king:
+            return getCross(pieceCoordinates, 1).concat(getDiagonalCross(pieceCoordinates, 1)).map(v => ({
+                performFrom: pieceCoordinates,
+                performOnto: v,
+                type: "move"
+            }));
+        case PieceType.queen:
+            return getCross(pieceCoordinates).concat(getDiagonalCross(pieceCoordinates)).map(v => ({
+                performFrom: pieceCoordinates,
+                performOnto: v,
+                type: "move"
+            }));
+        case PieceType.pawn:
+            return playingSide === 1 ? [{
+                performFrom: pieceCoordinates,
+                performOnto: (pm[pieceCoordinates.y][pieceCoordinates.x] as NotEmptyPiece).color === "black" ? pieceCoordinates.add(new Vector(0, -1)) : pieceCoordinates.add(new Vector(0, 1)),
+                type: "move"
+            }] : [{
+                performFrom: pieceCoordinates,
+                performOnto: (pm[pieceCoordinates.y][pieceCoordinates.x] as NotEmptyPiece).color === "white" ? pieceCoordinates.add(new Vector(0, -1)) : pieceCoordinates.add(new Vector(0, 1)),
+                type: "move"
+            }]
+        case PieceType.knight:
+            const resTiles: Vector[] = [];
+            let newTile = pieceCoordinates.add(new Vector(1, 2));
+            if(!isOutside(newTile)) resTiles.push(newTile);
+            newTile = pieceCoordinates.add(new Vector(-1, 2));
+            if(!isOutside(newTile)) resTiles.push(newTile);
+            newTile = pieceCoordinates.add(new Vector(1, -2));
+            if(!isOutside(newTile)) resTiles.push(newTile);
+            newTile = pieceCoordinates.add(new Vector(-1, -2));
+            if(!isOutside(newTile)) resTiles.push(newTile);
+            newTile = pieceCoordinates.add(new Vector(2, 1));
+            if(!isOutside(newTile)) resTiles.push(newTile);
+            newTile = pieceCoordinates.add(new Vector(-2, 1));
+            if(!isOutside(newTile)) resTiles.push(newTile);
+            newTile = pieceCoordinates.add(new Vector(2, -1));
+            if(!isOutside(newTile)) resTiles.push(newTile);
+            newTile = pieceCoordinates.add(new Vector(-2, -1));
+            if(!isOutside(newTile)) resTiles.push(newTile);
+            return resTiles.map(v => ({
+                performFrom: pieceCoordinates,
+                performOnto: v,
+                type: "move"
+            }));
+        default:
+            return [];
     }
 }

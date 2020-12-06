@@ -13,6 +13,11 @@
     border: 5px white solid;
 }
 
+.chess_possible_move {
+    filter: sepia(1) saturate(1) hue-rotate(-180deg);
+    border: 5px solid rgb(117, 117, 117);
+}
+
 
 .chess_piece_wrapper {
     width: 100%;
