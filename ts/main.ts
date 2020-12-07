@@ -420,7 +420,7 @@ function onKeyUpdate(removedKeys: Set<string>) {
     if (KeysPressed.has("KeyH")) {
         showLogs = !showLogs;
     }
-    if ((removedKeys.has("ShiftLeft") || (removedKeys.has("ShiftRight")) && customArrowMode) {
+    if ((removedKeys.has("ShiftLeft") || (removedKeys.has("ShiftRight")) && customArrowMode)) {
         customArrowEnd();
     }
     if (isShiftPressed() && KeysPressed.has("KeyD")) {
