@@ -95,6 +95,18 @@ let lastInsideMouseCoordinates = new Vector(-1, -1);
  */
 const moveArrow = new Arrow(new Vector(0, 0), new Vector(0, 0), true, Arrow.DefaultSyles.move);
 /**
+ * list of every "custom" (user created) arrows
+ */
+const customArrows: Set<Arrow> = new Set();
+/**
+ * selected custom arrow that will follow the cursor
+ */
+let selectedCustomArrow: Arrow | null = null;
+/**
+ * flag saying if the user is currently working with custom arrows
+ */
+let customArrowMode = false;
+/**
  * log object for the main script, refer to Arrow.DrawLogs's doc for more details 
  */
 const MainLog = Arrow.DrawLogs.set("Main", new Map()).get("Main") as Map<string, string>;
@@ -113,10 +125,10 @@ let acutalPossibleMoves: Move[] = [];
 /* -------------------------------------------------------------------------- */
 /*                                  FUNCTIONS                                 */
 /* -------------------------------------------------------------------------- */
-
+// ANCHOR FUNCTIONS
 
 /* --------------------------- PIECEMAP GENERATION -------------------------- */
-// ANCHOR PIECEMAP GENERATION
+// ANCHOR .    piecemap generation
 
 updatePieceDom(piecesMap);
 
@@ -154,16 +166,16 @@ function initBasicPieceMap(): PiecesMap {
 function initRandomPieceMap() {
     const emptyMap = initEmptyPieceMap();
     const pieces = [BLACK_ROOK, BLACK_KING, BLACK_BISHOP, BLACK_KING, BLACK_QUEEN, BLACK_PAWN, WHITE_ROOK, WHITE_KNIGHT, WHITE_BISHOP, WHITE_KING, WHITE_QUEEN, WHITE_PAWN, PIECE_EMPTY, PIECE_EMPTY];
-    for(let y = 0; y < 8; y++) {
-        for(let x = 0; x < 8; x++) {
-            emptyMap[y][x] = pieces[ranInt(0, pieces.length-1)];
+    for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
+            emptyMap[y][x] = pieces[ranInt(0, pieces.length - 1)];
         }
     }
     return emptyMap;
 }
 
 /* -------------------------- DOM RELATED FUCNTIONS ------------------------- */
-// ANCHOR DOM RELATED
+// ANCHOR .    dom related
 
 /**
  * poppulate the dom with all the td and tr elements to make the chess board
@@ -270,15 +282,29 @@ function addEventsListenersToChessTilesDom() {
                         }
                     }
                 }
+                if (selectedCustomArrow !== null) {
+                    selectedCustomArrow.interpolateTo({
+                        startPos: null,
+                        endPos: chessMousePos.clone()
+                    })
+                }
             });
         }
     }
 }
 
-/* -------------------------- MOVE RELATED FUNCTION ------------------------- */
-// ANCHOR MOVE RELATED
+function fixCanvasRenderingPlayingSideDomIssue() {
+    if (playingSide === 1) {
+        const units = getChessToRealCoordUnits();
+        ctx.translate(ctx.canvas.width + units.x, ctx.canvas.height + units.y);
+        ctx.scale(-1, -1);
+    }
+}
 
-function moveTypeToStyle (moveType: MoveType) {
+/* -------------------------- MOVE RELATED FUNCTION ------------------------- */
+// ANCHOR .    move related
+
+function moveTypeToStyle(moveType: MoveType) {
     switch (moveType) {
         case "move":
             return { css: "chess_possible_move", arrow: Arrow.DefaultSyles.move };
@@ -289,12 +315,15 @@ function moveTypeToStyle (moveType: MoveType) {
     }
 }
 
-function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap): Move[] {
+function isOutside(pos: Vector) {
+    return pos.x < 0 || pos.y < 0 || pos.x > 7 || pos.y > 7
+};
+
+function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture = false): Move[] {
     // no moves possible from an empty piece
     if (pm[pieceCoordinates.y][pieceCoordinates.x] === PIECE_EMPTY) return [];
     const piece = pm[pieceCoordinates.y][pieceCoordinates.x] as NotEmptyPiece;
     // of the chess board
-    const isOutside = (pos: Vector) => pos.x < 0 || pos.y < 0 || pos.x > 7 || pos.y > 7;
     const isMoveOutside = (move: Move) => isOutside(move.performOnto);
     const pushIfValid = (arr: Move[], move: Move): "valid" | "not empty" | "outside" => {
         if (!isMoveOutside(move)) {
@@ -360,9 +389,11 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap): Move[] {
         case PieceType.queen:
             return getCross(pieceCoordinates).concat(getDiagonalCross(pieceCoordinates));
         case PieceType.pawn:
-            const dir = new Vector(0, 1).multiply(playingSide === 1 ? 1 : -1).multiply(piece.color === "white" ? 1 : -1);
+            const dir = new Vector(0, 1).multiply(piece.color === "white" ? -1 : 1);
+            const hasntMoved = piece.color === "black" ? pieceCoordinates.y === 1 : pieceCoordinates.y === 6;
+            const straightMove: Move[] = onlyCapture ? [] : checkLine(pieceCoordinates, dir, hasntMoved ? 2 : 1, "only move");
             return [
-                ...checkLine(pieceCoordinates, dir, 1, "only move"),
+                ...straightMove,
                 ...checkLine(pieceCoordinates, dir.add(new Vector(1, 0)), 1, "only capture"),
                 ...checkLine(pieceCoordinates, dir.add(new Vector(-1, 0)), 1, "only capture")
             ];
@@ -383,13 +414,32 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap): Move[] {
 }
 
 /* ------------------------ EVENTS RELATED FUNCTIONS ------------------------ */
-// ANCHOR EVENTS RELATED
+// ANCHOR .    events related
 
-function onKeyUpdate() {
-    if (KeysPressed.has("h")) {
+function onKeyUpdate(removedKeys: Set<string>) {
+    if (KeysPressed.has("KeyH")) {
         showLogs = !showLogs;
     }
+    if ((removedKeys.has("ShiftLeft") || (removedKeys.has("ShiftRight")) && customArrowMode) {
+        customArrowEnd();
+    }
+    if (isShiftPressed() && KeysPressed.has("KeyD")) {
+        customArrowEnd();
+        customArrows.forEach(v => {
+            v.remove();
+        });
+        customArrows.clear();
+        Arrow.ActiveArrows.forEach(v => {
+            if (v.style === Arrow.DefaultSyles.custom) {
+                v.remove()
+            };
+        })
+    }
     MainLog.set("keys", Array.from(KeysPressed.keys()).toString());
+}
+
+function isShiftPressed() {
+    return (KeysPressed.has("ShiftLeft") || KeysPressed.has("ShiftRight"));
 }
 
 function updateCanvasSize() {
@@ -399,6 +449,42 @@ function updateCanvasSize() {
     canvasOverlay.style.height = tableHeight + "px";
     canvasOverlay.width = tableWidth;
     canvasOverlay.height = tableHeight;
+    ctx.resetTransform();
+    fixCanvasRenderingPlayingSideDomIssue();
+}
+
+function customArrowStart() {
+    if (isOutside(chessMousePos)) return;
+    const arrow = new Arrow(chessMousePos.clone(), chessMousePos.clone(), true, Arrow.DefaultSyles.custom);
+    customArrows.add(arrow);
+    if (!customArrows.has(arrow)) {
+        console.log('FUCK')
+    }
+    selectedCustomArrow = arrow;
+    customArrowMode = true;
+}
+
+function customArrowEnd() {
+    if (selectedCustomArrow !== null) {
+        if (selectedCustomArrow.startPos.equals(selectedCustomArrow.endPos)) {
+            customArrows.delete(selectedCustomArrow);
+        }
+        let found = false;
+        customArrows.forEach(v => {
+            selectedCustomArrow = <Arrow>selectedCustomArrow;
+            if (selectedCustomArrow.getFinaleState().startPos.equals(v.startPos) && selectedCustomArrow.getFinaleState().endPos.equals(v.endPos) && selectedCustomArrow.uuid !== v.uuid) {
+                customArrows.delete(v);
+                v.remove();
+                found = true;
+            }
+        });
+        if (found) {
+            customArrows.delete(selectedCustomArrow)
+            selectedCustomArrow.remove()
+        };
+    }
+    customArrowMode = false;
+    selectedCustomArrow = null;
 }
 
 updateCanvasSize();
@@ -411,16 +497,18 @@ updateCanvasSize();
 window.addEventListener('resize', updateCanvasSize);
 
 window.addEventListener('keydown', e => {
-    if (!KeysPressed.has(e.key)) {
-        KeysPressed.add(e.key);
+    if (!KeysPressed.has(e.code)) {
+        KeysPressed.add(e.code);
     }
-    onKeyUpdate();
+    onKeyUpdate(new Set());
 });
 window.addEventListener('keyup', e => {
-    if (KeysPressed.has(e.key)) {
-        KeysPressed.delete(e.key);
+    const removed = new Set<string>();
+    if (KeysPressed.has(e.code)) {
+        KeysPressed.delete(e.code);
+        removed.add(e.code);
     }
-    onKeyUpdate();
+    onKeyUpdate(removed);
 });
 
 window.addEventListener('mousemove', e => {
@@ -435,7 +523,8 @@ window.addEventListener('mousemove', e => {
         mouseWasInsideLastCall = false;
         chessMousePos.set(new Vector(-1, -1));
     } else if (!outside) {
-        if (!mouseWasInsideLastCall && !lastInsideMouseCoordinates.equals(new Vector(-1, -1))) {
+        // if mouse was inside and the last coordinates were inside (to avoid getting negative index)
+        if (!mouseWasInsideLastCall && !isOutside(lastInsideMouseCoordinates)) {
             chessDomMap[lastInsideMouseCoordinates.y][lastInsideMouseCoordinates.x].classList.remove('chess_hover');
         }
         mouseWasInsideLastCall = true;
@@ -443,9 +532,9 @@ window.addEventListener('mousemove', e => {
 });
 
 window.addEventListener('click', e => {
+    const ShiftPressed = isShiftPressed();
 
-
-    if (!lastInsideMouseCoordinates.equals(new Vector(-1, -1))) {
+    if (!isOutside(lastInsideMouseCoordinates)) {
         chessDomMap[lastInsideMouseCoordinates.y][lastInsideMouseCoordinates.x].classList.remove('chess_hover');
     }
 
@@ -455,47 +544,42 @@ window.addEventListener('click', e => {
         i.classList.remove(moveTypeToStyle("check").css);
     }
 
-    const usedUnselected = selectedPiece.equals(new Vector(-1, -1));
+    const usedToBeUnselected = selectedPiece.equals(new Vector(-1, -1));
 
     // reset old selected piece
-    if (!selectedPiece.equals(new Vector(-1, -1))) {
-        const selx = selectedPiece.x;
-        const sely = selectedPiece.y;
-        chessDomMap[sely][selx].classList.remove("chess_selected");
-    }
+    if (!usedToBeUnselected)
+        chessDomMap[selectedPiece.y][selectedPiece.x].classList.remove("chess_selected");
 
-    // will be -1 -1 if click out of the chess board or if already selected
+    // unselect if already selected
     selectedPiece = selectedPiece.equals(chessMousePos) ? new Vector(-1, -1) : chessMousePos.clone();
-    const selectedPieceType =
-        selectedPiece.x >= 0 &&
-            selectedPiece.y >= 0 &&
-            selectedPiece.y < piecesMap.length &&
-            selectedPiece.x < piecesMap[selectedPiece.y].length ?
-            piecesMap[selectedPiece.y][selectedPiece.x] :
-            PIECE_EMPTY;
+
+    ShiftPressed && (selectedPiece = new Vector(-1, -1));
+
+    const selectedPieceType = !isOutside(selectedPiece) ? piecesMap[selectedPiece.y][selectedPiece.x] : PIECE_EMPTY;
+    // unselect if clicked on empty piece
     if (selectedPieceType === PIECE_EMPTY) selectedPiece = new Vector(-1, -1);
 
-    if (!selectedPiece.equals(new Vector(-1, -1))) {
-        const selPieceType = selectedPieceType as NotEmptyPiece;
-        const selx = selectedPiece.x;
-        const sely = selectedPiece.y;
-        chessDomMap[sely][selx].classList.add("chess_selected");
+    if (!isOutside(selectedPiece) && !ShiftPressed) {
+        chessDomMap[selectedPiece.y][selectedPiece.x].classList.add("chess_selected");
 
-        const dirrect = selPieceType.type !== PieceType.knight;
-        moveArrow.pathDirrect = dirrect;
-        if (!usedUnselected) {
-            moveArrow.interpolateTo({
-                startPos: selectedPiece.clone(),
-                endPos: chessMousePos.clone()
-            })
-        } else {
+        // change arrow type if knight
+        moveArrow.pathDirrect = (selectedPieceType as NotEmptyPiece).type !== PieceType.knight;
+
+        // for esthetic
+        if (usedToBeUnselected) {
             moveArrow.startPos = selectedPiece.clone();
             moveArrow.endPos = chessMousePos.clone();
             moveArrow.resetInterpolation();
+        } else {
+            moveArrow.interpolateTo({
+                startPos: selectedPiece.clone(),
+                endPos: chessMousePos.clone()
+            });
         }
 
         acutalPossibleMoves = getPossiblesMoves(selectedPiece, piecesMap);
         MainLog.set("moves", JSON.stringify(acutalPossibleMoves.map(v => v.type)).replace(/\{\[/g, "$&\n"))
+
         for (let i of acutalPossibleMoves) {
             const domEl = chessDomMap[i.performOnto.y][i.performOnto.x];
             const style = moveTypeToStyle(i.type);
@@ -505,12 +589,24 @@ window.addEventListener('click', e => {
 
     } else {
         moveArrow.interpolateTo({
-            startPos: moveArrow.startPos,
+            startPos: null,
             endPos: moveArrow.startPos
         })
     }
 
     MainLog.set("selected piece", selectedPiece.toString());
+});
+
+window.addEventListener("mousedown", e => {
+    if (isShiftPressed()) {
+        customArrowStart();
+    }
+});
+
+window.addEventListener("mouseup", e => {
+    if (customArrowMode) {
+        customArrowEnd();
+    }
 });
 
 addEventsListenersToChessTilesDom();

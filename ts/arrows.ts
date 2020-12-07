@@ -130,6 +130,12 @@ class Arrow {
         Arrow.ActiveArrows.add(this);
         Arrow.DrawLogs.set(this.uuid, new Map());
     }
+    getFinaleState(): ArrowState {
+        return {    
+            endPos: this.transitionToState.endPos || this.endPos,
+            startPos: this.transitionToState.startPos || this.startPos
+        }
+    }
     getActualState(): ArrowState {
         return {
             startPos: this.startPos.clone(),
@@ -448,6 +454,8 @@ function ChessToRealCoordinates(chessCoord: Vector, unit?: Vector): Vector {
 
 /**
  * visuallize a bezier curve with animation, meant for developpement to be put in a draw loop of a canvas
+ * 
+ * - this (as well as the entire canvas) will be rendered reverse if the playing side is 1
  * @param p1 bezier frist point
  * @param p2 bezier second point
  * @param p3 bezier thrid point
