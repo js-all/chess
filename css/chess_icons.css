@@ -5,6 +5,17 @@
     z-index: 1000000;
     
 }
+
+.chess_possible_move {
+    filter: sepia(1) saturate(0.5) hue-rotate(-180deg);
+    border: 3px solid rgb(117, 117, 117);
+}
+
+.chess_possible_capture {
+    filter: sepia(1) saturate(0.5) hue-rotate(-80deg);
+    border: 3px solid rgb(117, 117, 117);
+}
+
 .chess_hover {
     border: 5px solid rgb(117, 117, 117);
 }
@@ -13,10 +24,6 @@
     border: 5px white solid;
 }
 
-.chess_possible_move {
-    filter: sepia(1) saturate(1) hue-rotate(-180deg);
-    border: 5px solid rgb(117, 117, 117);
-}
 
 
 .chess_piece_wrapper {

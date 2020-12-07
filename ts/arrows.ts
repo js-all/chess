@@ -89,9 +89,20 @@ class Arrow {
     uuid: string = uuid4();
     transitionStartDate = new Date(0);
     transitionDuration = 100;
+    transitionActualDuration = this.transitionDuration;
     transitionFromState: ArrowState;
     transitionToState: TransitionArrowState;
     transitionBezierCurve: BezierCurveData;
+    static DefaultTransitionBezierCurve: BezierCurveData = {
+        points: {
+            p1: new Vector(0, 0),
+            p2: new Vector(1, 0),
+            p3: new Vector(1, 1),
+            p4: new Vector(1, 1)
+        },
+        component: "x coordinate"
+    }
+
 
 
     /**
@@ -101,15 +112,7 @@ class Arrow {
      * @param pathDirrect if the arrows goes straight to its end postion or take turns
      * @param style define the style of the arrow
      */
-    constructor(startPos: Vector, endPos: Vector, pathDirrect: boolean, style: ArrowStyle, transitionBezierCurve: BezierCurveData = {
-        points: {
-            p1: new Vector(0, 0),
-            p2: new Vector(0, 0),
-            p3: new Vector(0, 1),
-            p4: new Vector(0, 1)
-        },
-        component: "y coordinate"
-    }) {
+    constructor(startPos: Vector, endPos: Vector, pathDirrect: boolean, style: ArrowStyle, transitionBezierCurve: BezierCurveData = Arrow.DefaultTransitionBezierCurve) {
         this.startPos = startPos;
         this.endPos = endPos;
         this.pathDirrect = pathDirrect;
@@ -138,10 +141,14 @@ class Arrow {
         this.endPos = state.endPos === null ? this.endPos : state.endPos.clone();
     }
     interpolateTo(state: TransitionArrowState) {
-        // if((new Date().getTime() - this.transitionStartDate.getTime()) / this.transitionDuration >= 1) {
-            this.transitionFromState = this.getActualState();
-            this.transitionStartDate = new Date();
-        // }
+        const timeElapsed = (new Date().getTime() - this.transitionStartDate.getTime());
+        this.transitionStartDate = new Date();
+        this.transitionFromState = this.getActualState();
+        if (timeElapsed <= this.transitionActualDuration) {
+            this.transitionActualDuration -= 1;
+        } else {
+            this.transitionActualDuration = this.transitionDuration;
+        }
         this.transitionToState = state;
     }
     resetInterpolation() {
@@ -158,11 +165,11 @@ class Arrow {
     draw(ctx: CanvasRenderingContext2D) {
         const Logs = Arrow.DrawLogs.get(this.uuid) as Map<string, string>;
 
-        let transitionFactor = (new Date().getTime() - this.transitionStartDate.getTime()) / this.transitionDuration;
+        let transitionFactor = (new Date().getTime() - this.transitionStartDate.getTime()) / this.transitionActualDuration;
         transitionFactor = transitionFactor > 1 ? 1 : transitionFactor;
 
-        
-        
+
+
         //@ts-expect-error
         const bezierFactor = bezierInterpolation(this.transitionBezierCurve, transitionFactor) as number;
         if (this.transitionToState.startPos !== null) {
@@ -171,9 +178,6 @@ class Arrow {
         if (this.transitionToState.endPos !== null) {
             this.endPos = Vector.lerp(this.transitionFromState.endPos, this.transitionToState.endPos, bezierFactor);
         }
-        
-        Logs.set("bezier factor", bezierFactor + "");
-        Logs.set("factor", transitionFactor + "");
 
         // don't render if the arrows points to itself (causes and error with the gradient)
         if (this.startPos.equals(this.endPos)) return;
@@ -412,10 +416,10 @@ class Arrow {
         Arrow.renderArrows(ctx, showLogs);
 
         // visuallizeBezierCurve(
-        //     new Vector(0, 0),
-        //     new Vector(0, 0),
-        //     new Vector(0, 1),
-        //     new Vector(0, 1.),
+        //     Arrow.DefaultTransitionBezierCurve.points.p1,
+        //     Arrow.DefaultTransitionBezierCurve.points.p2,
+        //     Arrow.DefaultTransitionBezierCurve.points.p3,
+        //     Arrow.DefaultTransitionBezierCurve.points.p4,
         //     2000,
         //     200
         // );
