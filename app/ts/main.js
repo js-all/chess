@@ -1,55 +1,26 @@
+"use strict";
 /* -------------------------------------------------------------------------- */
 /*                                 DEFINITIONS                                */
 /* -------------------------------------------------------------------------- */
-
-/* ---------------------------- TYPESCRIPT TYPES ---------------------------- */
-// ANCHOR TYPES
-
-// piece map
-// typescript really need a way to do that cleaner
-type Tuple8<T> = [T, T, T, T, T, T, T, T];
-type Tuple8x8<T> = Tuple8<Tuple8<T>>;
-type PiecesMap = Tuple8x8<Piece>;
-
-// piece
-interface NotEmptyPiece {
-    type: PieceType,
-    color: "black" | "white"
-}
-
-enum PieceType {
-    pawn,
-    rook,
-    knight,
-    bishop,
-    queen,
-    king,
-    empty
-}
-
-type Piece = NotEmptyPiece | PieceType.empty;
-
-// move
-type MoveType = "move" | "capture";
-
-interface Move {
-    performFrom: Vector,
-    performOnto: Vector,
-    type: MoveType,
-    checking: Vector | null
-}
-
-
+var PieceType;
+(function (PieceType) {
+    PieceType[PieceType["pawn"] = 0] = "pawn";
+    PieceType[PieceType["rook"] = 1] = "rook";
+    PieceType[PieceType["knight"] = 2] = "knight";
+    PieceType[PieceType["bishop"] = 3] = "bishop";
+    PieceType[PieceType["queen"] = 4] = "queen";
+    PieceType[PieceType["king"] = 5] = "king";
+    PieceType[PieceType["empty"] = 6] = "empty";
+})(PieceType || (PieceType = {}));
 /* ------------------------- CONSTANTS AND GLOBALSS ------------------------- */
 // ANCHOR GLOBALS
-
-const TableDomElement = document.querySelector('table') as HTMLTableElement;
+const TableDomElement = document.querySelector('table');
 /**
  * 0 - white
- * 
+ *
  * 1 - black
  */
-const playingSide: 0 | 1 = 0;
+const playingSide = 0;
 /**
  * a map to get the dom element of any corresponding chess coordinates
  */
@@ -61,31 +32,15 @@ const chessMousePos = new Vector(-1, -1);
 /**
  * a set with every pressed down keys
  */
-const KeysPressed = new Set<string>();
-
-const BLACK_PAWN: Piece = { type: PieceType.pawn, color: "black" },
-    BLACK_ROOK: Piece = { type: PieceType.rook, color: "black" },
-    BLACK_KNIGHT: Piece = { type: PieceType.knight, color: "black" },
-    BLACK_BISHOP: Piece = { type: PieceType.bishop, color: "black" },
-    BLACK_QUEEN: Piece = { type: PieceType.queen, color: "black" },
-    BLACK_KING: Piece = { type: PieceType.king, color: "black" },
-    WHITE_PAWN: Piece = { type: PieceType.pawn, color: "white" },
-    WHITE_ROOK: Piece = { type: PieceType.rook, color: "white" },
-    WHITE_KNIGHT: Piece = { type: PieceType.knight, color: "white" },
-    WHITE_BISHOP: Piece = { type: PieceType.bishop, color: "white" },
-    WHITE_QUEEN: Piece = { type: PieceType.queen, color: "white" },
-    WHITE_KING: Piece = { type: PieceType.king, color: "white" },
-    PIECE_EMPTY: PieceType.empty = PieceType.empty;
-
+const KeysPressed = new Set();
+const BLACK_PAWN = { type: PieceType.pawn, color: "black" }, BLACK_ROOK = { type: PieceType.rook, color: "black" }, BLACK_KNIGHT = { type: PieceType.knight, color: "black" }, BLACK_BISHOP = { type: PieceType.bishop, color: "black" }, BLACK_QUEEN = { type: PieceType.queen, color: "black" }, BLACK_KING = { type: PieceType.king, color: "black" }, WHITE_PAWN = { type: PieceType.pawn, color: "white" }, WHITE_ROOK = { type: PieceType.rook, color: "white" }, WHITE_KNIGHT = { type: PieceType.knight, color: "white" }, WHITE_BISHOP = { type: PieceType.bishop, color: "white" }, WHITE_QUEEN = { type: PieceType.queen, color: "white" }, WHITE_KING = { type: PieceType.king, color: "white" }, PIECE_EMPTY = PieceType.empty;
 /**
  * a map with every pieces
  */
-const piecesMap: PiecesMap = initBasicPieceMap();
-
+const piecesMap = initBasicPieceMap();
 piecesMap[0][4] = PIECE_EMPTY;
 piecesMap[4][0] = BLACK_KING;
 piecesMap[4][7] = BLACK_KING;
-
 /**
  * a flag set to true when the mouse was inside last onMouseMove event
  */
@@ -94,7 +49,6 @@ let mouseWasInsideLastCall = false;
  * the last Chess Mouse coordinates before the cursor left the board
  */
 let lastInsideMouseCoordinates = new Vector(-1, -1);
-
 /**
  * the arrow object shown when selecting pieces
  */
@@ -102,64 +56,57 @@ const moveArrow = new Arrow(new Vector(0, 0), new Vector(0, 0), true, Arrow.Defa
 /**
  * list of every "custom" (user created) arrows
  */
-const customArrows: Set<Arrow> = new Set();
+const customArrows = new Set();
 /**
  * selected custom arrow that will follow the cursor
  */
-let selectedCustomArrow: Arrow | null = null;
+let selectedCustomArrow = null;
 /**
  * flag saying if the user is currently working with custom arrows
  */
 let customArrowMode = false;
 /**
- * log object for the main script, refer to Arrow.DrawLogs's doc for more details 
+ * log object for the main script, refer to Arrow.DrawLogs's doc for more details
  */
-const MainLog = Arrow.DrawLogs.set("Main", new Map()).get("Main") as Map<string, string>;
-
+const MainLog = Arrow.DrawLogs.set("Main", new Map()).get("Main");
 /**
  * the selected piece's coordinates (-1, -1 if none)
  */
-let selectedPiece: Vector = new Vector(-1, -1);
+let selectedPiece = new Vector(-1, -1);
 /**
  * a list of the dom elements with special css class (used for moves highlights) to be able to clear them without having to loop throught every single one
  */
-let lastPossibleMovesDomElements: HTMLTableDataCellElement[] = [];
+let lastPossibleMovesDomElements = [];
 /**
  * every possible moves of the selected piece
  */
-let acutalPossibleMoves: Move[] = [];
+let acutalPossibleMoves = [];
 /**
  * list of every dom elements with the class chess_checking_move to remove it later
  */
-let lastCheckingMoveDomElements: HTMLTableDataCellElement[] = [];
-
-
+let lastCheckingMoveDomElements = [];
 /* -------------------------------------------------------------------------- */
 /*                                  FUNCTIONS                                 */
 /* -------------------------------------------------------------------------- */
 // ANCHOR FUNCTIONS
-
 /* --------------------------- PIECEMAP GENERATION -------------------------- */
 // ANCHOR .    piecemap generation
-
 updatePieceDom(piecesMap);
-
 /**
  * return an piece map full of empty pieces
  */
 function initEmptyPieceMap() {
-    let res: Piece[][] = [];
+    let res = [];
     for (let i = 0; i < 8; i++) {
         // if you're wondering, yes the .fill(0) here is needed, its just javascrpipt being weird
-        res.push(new Array(8).fill(0).map(v => PieceType.empty));
+        res.push(new Array(8).fill(0).map(() => PieceType.empty));
     }
-    return res as PiecesMap;
+    return res;
 }
-
 /**
  * return a piece map with regular chess starting position
  */
-function initBasicPieceMap(): PiecesMap {
+function initBasicPieceMap() {
     return [
         [BLACK_ROOK, BLACK_KNIGHT, BLACK_BISHOP, BLACK_QUEEN, BLACK_KING, BLACK_BISHOP, BLACK_KNIGHT, BLACK_ROOK],
         [BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN,],
@@ -171,7 +118,6 @@ function initBasicPieceMap(): PiecesMap {
         [WHITE_ROOK, WHITE_KNIGHT, WHITE_BISHOP, WHITE_QUEEN, WHITE_KING, WHITE_BISHOP, WHITE_KNIGHT, WHITE_ROOK]
     ];
 }
-
 /**
  * return a fully random piecemap
  */
@@ -185,60 +131,49 @@ function initRandomPieceMap() {
     }
     return emptyMap;
 }
-
-function clonePieceMap(pm: PiecesMap) {
-    return pm.map(v => [...v]) as PiecesMap;
+function clonePieceMap(pm) {
+    return pm.map(v => [...v]);
 }
-
-function clonePiece(piece: Piece): Piece {
+function clonePiece(piece) {
     return piece === PIECE_EMPTY ? piece : {
         color: piece.color,
         type: piece.type
-    }
+    };
 }
-
 /* -------------------------- DOM RELATED FUCNTIONS ------------------------- */
 // ANCHOR .    dom related
-
 /**
  * poppulate the dom with all the td and tr elements to make the chess board
  */
-function generateDom(playingSide: 0 | 1) {
+function generateDom(playingSide) {
     const lettersArray = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    const tobdyEl = TableDomElement.firstElementChild as HTMLElement;
+    const tobdyEl = TableDomElement.firstElementChild;
     const domElementsMap = new Array(8).fill(0).map(() => new Array(8));
     // -1 because we want to add another row for the letters and numbers on the left and top
     for (let y = -1; y < 8; y++) {
         const trEl = document.createElement('tr');
-
         if (y === -1) {
             trEl.id = "chess_letters";
-
             for (let i = 0; i <= 8; i++) {
                 const tdEl = document.createElement('td');
-
                 tdEl.classList.add('chess_letter');
                 tdEl.classList.add('chess_key');
-
                 if (i === 0) {
                     tdEl.classList.add('empty_chess_letter');
-                    tdEl.innerHTML = " "
-                } else {
+                    tdEl.innerHTML = " ";
+                }
+                else {
                     tdEl.innerHTML = lettersArray[playingSide ? Math.abs(i - 8) : i - 1];
                 }
-
                 trEl.appendChild(tdEl);
             }
             tobdyEl.appendChild(trEl);
-
             continue;
         }
-
         trEl.classList.add('chess_row');
         // -1 for the same reason
         for (let x = -1; x < 8; x++) {
             const tdEl = document.createElement('td');
-
             if (x === -1) {
                 tdEl.classList.add('chess_number');
                 tdEl.classList.add('chess_key');
@@ -246,7 +181,6 @@ function generateDom(playingSide: 0 | 1) {
                 trEl.appendChild(tdEl);
                 continue;
             }
-
             tdEl.classList.add('chess_col');
             tdEl.id = `chess_cell[${x},${y}]`;
             domElementsMap[y][x] = tdEl;
@@ -254,38 +188,37 @@ function generateDom(playingSide: 0 | 1) {
         }
         tobdyEl.appendChild(trEl);
     }
-    const DEM = domElementsMap as HTMLTableDataCellElement[][];
+    const DEM = domElementsMap;
     return playingSide === 0 ? DEM : DEM.map(v => v.reverse()).reverse();
 }
-
 /**
  * update the dom to match the piece map
  * @param pm the piece map to update the dom from
  */
-function updatePieceDom(pm: PiecesMap) {
+function updatePieceDom(pm) {
     for (let x = 0; x < 8; x++) {
         for (let y = 0; y < 8; y++) {
             const chessSlot = chessDomMap[x][y];
             while (chessSlot.childElementCount > 0) {
-                chessSlot.removeChild(chessSlot.firstElementChild as HTMLElement);
+                chessSlot.removeChild(chessSlot.firstElementChild);
             }
-            if (pm[x][y] === PieceType.empty) continue;
+            if (pm[x][y] === PieceType.empty)
+                continue;
             const pieceElWrapper = document.createElement('div');
             pieceElWrapper.classList.add('chess_piece_wrapper');
             const pieceElement = document.createElement('div');
             pieceElement.classList.add('chess_piece');
-            pieceElement.classList.add(`chess_piece_${PieceType[(pm[x][y] as NotEmptyPiece).type]}`);
-            pieceElement.classList.add(`chess_piece_${(pm[x][y] as NotEmptyPiece).color}`)
+            pieceElement.classList.add(`chess_piece_${PieceType[pm[x][y].type]}`);
+            pieceElement.classList.add(`chess_piece_${pm[x][y].color}`);
             pieceElWrapper.appendChild(pieceElement);
             chessSlot.appendChild(pieceElWrapper);
         }
     }
 }
-
 function addEventsListenersToChessTilesDom() {
     for (let x = 0; x < 8; x++) {
         for (let y = 0; y < 8; y++) {
-            chessDomMap[x][y].addEventListener('mouseover', e => {
+            chessDomMap[x][y].addEventListener('mouseover', () => {
                 if (!chessMousePos.equals(new Vector(-1, -1))) {
                     chessDomMap[chessMousePos.y][chessMousePos.x].classList.remove('chess_hover');
                 }
@@ -309,13 +242,12 @@ function addEventsListenersToChessTilesDom() {
                     selectedCustomArrow.interpolateTo({
                         startPos: null,
                         endPos: chessMousePos.clone()
-                    })
+                    });
                 }
             });
         }
     }
 }
-
 function fixCanvasRenderingPlayingSideDomIssue() {
     if (playingSide === 1) {
         const units = getChessToRealCoordUnits();
@@ -323,7 +255,6 @@ function fixCanvasRenderingPlayingSideDomIssue() {
         ctx.scale(-1, -1);
     }
 }
-
 function removeOldTilesCssClasses() {
     // remove css class to last hovered tile
     if (!isOutside(lastInsideMouseCoordinates)) {
@@ -335,21 +266,17 @@ function removeOldTilesCssClasses() {
         i.classList.remove(moveTypeToStyle("capture").css);
     }
     lastPossibleMovesDomElements = [];
-
     // remove last selected tile's css class
     if (!selectedPiece.equals(new Vector(-1, -1)))
         chessDomMap[selectedPiece.y][selectedPiece.x].classList.remove("chess_selected");
-
     for (let i of lastCheckingMoveDomElements) {
         i.classList.remove("chess_checking_move");
     }
     lastCheckingMoveDomElements = [];
 }
-
 /* -------------------------- MOVE RELATED FUNCTION ------------------------- */
 // ANCHOR .    move related
-
-function moveTypeToStyle(moveType: MoveType) {
+function moveTypeToStyle(moveType) {
     switch (moveType) {
         case "move":
             return { css: "chess_possible_move", arrow: Arrow.DefaultSyles.move };
@@ -357,50 +284,53 @@ function moveTypeToStyle(moveType: MoveType) {
             return { css: "chess_possible_capture", arrow: Arrow.DefaultSyles.capture };
     }
 }
-
-function isOutside(pos: Vector) {
-    return pos.x < 0 || pos.y < 0 || pos.x > 7 || pos.y > 7
-};
-
-function performMove(move: Move, pm: PiecesMap) {
+function isOutside(pos) {
+    return pos.x < 0 || pos.y < 0 || pos.x > 7 || pos.y > 7;
+}
+;
+function performMove(move, pm) {
     pm[move.performOnto.y][move.performOnto.x] = clonePiece(pm[move.performFrom.y][move.performFrom.x]);
     pm[move.performFrom.y][move.performFrom.x] = PIECE_EMPTY;
     return pm;
 }
-function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture = false): Move[] {
+function getPossiblesMoves(pieceCoordinates, pm, onlyCapture = false) {
     // no moves possible from an empty piece
-    if (pm[pieceCoordinates.y][pieceCoordinates.x] === PIECE_EMPTY) return [];
-    const piece = pm[pieceCoordinates.y][pieceCoordinates.x] as NotEmptyPiece;
+    if (pm[pieceCoordinates.y][pieceCoordinates.x] === PIECE_EMPTY)
+        return [];
+    const piece = pm[pieceCoordinates.y][pieceCoordinates.x];
     // of the chess board
-    const isMoveOutside = (move: Move) => isOutside(move.performOnto);
-    const pushIfValid = (arr: Move[], move: Move): "valid" | "not empty" | "outside" => {
+    const isMoveOutside = (move) => isOutside(move.performOnto);
+    const pushIfValid = (arr, move) => {
         if (!isMoveOutside(move)) {
             if (pm[move.performOnto.y][move.performOnto.x] === PIECE_EMPTY) {
                 arr.push(move);
                 return "valid";
-            } else {
+            }
+            else {
                 return "not empty";
             }
-        } else {
+        }
+        else {
             return "outside";
         }
     };
-    const checkLine = (from: Vector, piece: Piece, dir: Vector, length: number, capture: "move or capture" | "only capture" | "only move" = "move or capture") => {
+    const checkLine = (from, piece, dir, length, capture = "move or capture") => {
         const udir = dir.floor();
-        const resMoves: Move[] = [];
+        const resMoves = [];
         for (let i = 1; i <= length; i++) {
             const actualTile = from.add(udir.multiply(i));
-            const move: Move = {
+            const move = {
                 performFrom: from,
                 performOnto: actualTile,
                 type: "move",
                 checking: null
-            }
+            };
             if ((capture === "only capture" && !isMoveOutside(move)) || (pushIfValid(resMoves, move) === "not empty" && capture === "move or capture")) {
                 const actualPiece = pm[actualTile.y][actualTile.x];
-                if (actualPiece === PIECE_EMPTY) break;
-                const notEmptyPiece = actualPiece as NotEmptyPiece;
-                if (piece !== PIECE_EMPTY && notEmptyPiece.color !== (<NotEmptyPiece>piece).color) {
+                if (actualPiece === PIECE_EMPTY)
+                    break;
+                const notEmptyPiece = actualPiece;
+                if (piece !== PIECE_EMPTY && notEmptyPiece.color !== piece.color) {
                     move.type = "capture";
                     resMoves.push(move);
                 }
@@ -408,10 +338,11 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture 
             }
         }
         return resMoves;
-    }
+    };
     // don't return anything if piece doesn't exist
-    if (isOutside(pieceCoordinates)) return [];
-    const getCross = (from: Vector, piece: Piece, length: number = 8) => {
+    if (isOutside(pieceCoordinates))
+        return [];
+    const getCross = (from, piece, length = 8) => {
         return [
             ...checkLine(from, piece, new Vector(1, 0), length),
             ...checkLine(from, piece, new Vector(0, 1), length),
@@ -419,7 +350,7 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture 
             ...checkLine(from, piece, new Vector(0, -1), length),
         ];
     };
-    const getDiagonalCross = (from: Vector, piece: Piece, length: number = 8) => {
+    const getDiagonalCross = (from, piece, length = 8) => {
         return [
             ...checkLine(from, piece, new Vector(1, 1), length),
             ...checkLine(from, piece, new Vector(1, -1), length),
@@ -427,43 +358,39 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture 
             ...checkLine(from, piece, new Vector(-1, -1), length),
         ];
     };
-    const getMoves = (piece: NotEmptyPiece, pieceCoordinates: Vector) => {
+    const getMoves = (piece, pieceCoordinates) => {
         switch (piece.type) {
             case PieceType.bishop:
                 return getDiagonalCross(pieceCoordinates, piece);
             case PieceType.rook:
                 return getCross(pieceCoordinates, piece);
             case PieceType.king:
+                // technically a one liner
                 // return a list of legal king moves
                 return getCross(pieceCoordinates, piece, 1)
                     .concat(getDiagonalCross(pieceCoordinates, piece, 1))
                     // return a the list of possible moves for the king, without the ones that would make an enemy piece able to capture him
-                    .filter(move =>
-                        (performMove(move, clonePieceMap(pm)) as PiecesMap)
-                            // return an Array of rows stripped out of the piece that cannot capture the king if the move was performed
-                            .map((row, y, pieceMap) =>
-                                // return a row stripped of any piece that cannot capture the king if the move was performed
-                                row.filter((IKMPMPiece, x) =>
-                                    // return true if: the piece is not empty, the piece is an ennemy
-                                    IKMPMPiece !== PIECE_EMPTY && IKMPMPiece.color !== piece.color &&
-                                    // and the piece can eat the king
-                                    getPossiblesMoves(new Vector(x, y), pieceMap as PiecesMap)
-
-                                        .filter(m => m.type === "capture" && (pieceMap[m.performOnto.y][m.performOnto.x] as NotEmptyPiece).type === PieceType.king)
-                                        .length > 0
-                                ))
-                            // return an array of pieces that can capture the king if the move was performed
-                            .reduce((accumulator, currentValue) => accumulator.concat(...currentValue))
-                            // returns false if there's at least a piece that can capture the king if the move was performed
-                            .length < 1
-
-                    );
+                    .filter(move => performMove(move, clonePieceMap(pm))
+                    // return an Array of rows stripped out of the piece that cannot capture the king if the move was performed
+                    .map((row, y, pieceMap) => 
+                // return a row stripped of any piece that cannot capture the king if the move was performed
+                row.filter((IKMPMPiece, x) => 
+                // return true if: the piece is not empty, the piece is an ennemy
+                IKMPMPiece !== PIECE_EMPTY && IKMPMPiece.color !== piece.color &&
+                    // and the piece can eat the king
+                    getPossiblesMoves(new Vector(x, y), pieceMap)
+                        .filter(m => m.type === "capture" && pieceMap[m.performOnto.y][m.performOnto.x].type === PieceType.king)
+                        .length > 0))
+                    // return an array of pieces that can capture the king if the move was performed
+                    .reduce((accumulator, currentValue) => accumulator.concat(...currentValue))
+                    // returns false if there's at least a piece that can capture the king if the move was performed
+                    .length < 1);
             case PieceType.queen:
                 return getCross(pieceCoordinates, piece).concat(getDiagonalCross(pieceCoordinates, piece));
             case PieceType.pawn:
                 const dir = new Vector(0, 1).multiply(piece.color === "white" ? -1 : 1);
                 const hasntMoved = piece.color === "black" ? pieceCoordinates.y === 1 : pieceCoordinates.y === 6;
-                const straightMove: Move[] = onlyCapture ? [] : checkLine(pieceCoordinates, piece, dir, hasntMoved ? 2 : 1, "only move");
+                const straightMove = onlyCapture ? [] : checkLine(pieceCoordinates, piece, dir, hasntMoved ? 2 : 1, "only move");
                 return [
                     ...straightMove,
                     ...checkLine(pieceCoordinates, piece, dir.add(new Vector(1, 0)), 1, "only capture"),
@@ -483,7 +410,7 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture 
             default:
                 return [];
         }
-    }
+    };
     const possibleMoves = getMoves(piece, pieceCoordinates);
     for (let m of possibleMoves) {
         const checkingMoves = getMoves(piece, m.performOnto).filter(v => {
@@ -494,11 +421,9 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture 
     }
     return possibleMoves;
 }
-
 /* ------------------------ EVENTS RELATED FUNCTIONS ------------------------ */
 // ANCHOR .    events related
-
-function onKeyUpdate(removedKeys: Set<string>) {
+function onKeyUpdate(removedKeys) {
     if (KeysPressed.has("KeyH")) {
         showLogs = !showLogs;
     }
@@ -519,20 +444,19 @@ function onKeyUpdate(removedKeys: Set<string>) {
                 v.interpolateTo({
                     startPos: null,
                     endPos: v.getFinaleState().startPos
-                })
+                });
                 setTimeout(() => {
-                    v.remove()
+                    v.disable();
                 }, v.transitionDuration);
-            };
-        })
+            }
+            ;
+        });
     }
     MainLog.set("keys", Array.from(KeysPressed.keys()).toString());
 }
-
 function isShiftPressed() {
     return (KeysPressed.has("ShiftLeft") || KeysPressed.has("ShiftRight"));
 }
-
 function updateCanvasSize() {
     const tableHeight = TableDomElement.getBoundingClientRect().height;
     const tableWidth = TableDomElement.getBoundingClientRect().width;
@@ -543,18 +467,17 @@ function updateCanvasSize() {
     ctx.resetTransform();
     fixCanvasRenderingPlayingSideDomIssue();
 }
-
 function customArrowStart() {
-    if (isOutside(chessMousePos)) return;
+    if (isOutside(chessMousePos))
+        return;
     const arrow = new Arrow(chessMousePos.clone(), chessMousePos.clone(), true, Arrow.DefaultSyles.custom);
     customArrows.add(arrow);
     if (!customArrows.has(arrow)) {
-        console.log('FUCK')
+        console.log('FUCK');
     }
     selectedCustomArrow = arrow;
     customArrowMode = true;
 }
-
 function customArrowEnd() {
     if (selectedCustomArrow !== null) {
         if (selectedCustomArrow.startPos.equals(selectedCustomArrow.endPos)) {
@@ -562,31 +485,28 @@ function customArrowEnd() {
         }
         let found = false;
         customArrows.forEach(v => {
-            selectedCustomArrow = <Arrow>selectedCustomArrow;
+            selectedCustomArrow = selectedCustomArrow;
             if (selectedCustomArrow.getFinaleState().startPos.equals(v.startPos) && selectedCustomArrow.getFinaleState().endPos.equals(v.endPos) && selectedCustomArrow.uuid !== v.uuid) {
                 customArrows.delete(v);
-                v.remove();
+                v.disable();
                 found = true;
             }
         });
         if (found) {
-            customArrows.delete(selectedCustomArrow)
-            selectedCustomArrow.remove()
-        };
+            customArrows.delete(selectedCustomArrow);
+            selectedCustomArrow.disable();
+        }
+        ;
     }
     customArrowMode = false;
     selectedCustomArrow = null;
 }
-
 updateCanvasSize();
-
 /* -------------------------------------------------------------------------- */
 /*                               EVENT LISTENERS                              */
 /* -------------------------------------------------------------------------- */
 // ANCHOR EVENTS LISTENERS
-
 window.addEventListener('resize', updateCanvasSize);
-
 window.addEventListener('keydown', e => {
     if (!KeysPressed.has(e.code)) {
         KeysPressed.add(e.code);
@@ -594,26 +514,24 @@ window.addEventListener('keydown', e => {
     onKeyUpdate(new Set());
 });
 window.addEventListener('keyup', e => {
-    const removed = new Set<string>();
+    const removed = new Set();
     if (KeysPressed.has(e.code)) {
         KeysPressed.delete(e.code);
         removed.add(e.code);
     }
     onKeyUpdate(removed);
 });
-
 window.addEventListener('mousemove', e => {
     const clientRect = TableDomElement.getBoundingClientRect();
     const tableRelativeCoord = new Vector(e.clientX, e.clientY).substract(new Vector(clientRect.left, clientRect.top));
     const units = getChessToRealCoordUnits();
-
     const outside = (tableRelativeCoord.x > clientRect.width || tableRelativeCoord.y > clientRect.height || tableRelativeCoord.x < units.x || tableRelativeCoord.y < units.y);
-
     if (outside && mouseWasInsideLastCall) {
         lastInsideMouseCoordinates = chessMousePos.clone();
         mouseWasInsideLastCall = false;
         chessMousePos.set(new Vector(-1, -1));
-    } else if (!outside) {
+    }
+    else if (!outside) {
         // if mouse was inside and the last coordinates were inside (to avoid getting negative index)
         if (!mouseWasInsideLastCall && !isOutside(lastInsideMouseCoordinates)) {
             chessDomMap[lastInsideMouseCoordinates.y][lastInsideMouseCoordinates.x].classList.remove('chess_hover');
@@ -621,42 +539,34 @@ window.addEventListener('mousemove', e => {
         mouseWasInsideLastCall = true;
     }
 });
-
-window.addEventListener('click', e => {
+window.addEventListener('click', () => {
     const ShiftPressed = isShiftPressed();
-
     removeOldTilesCssClasses();
-
     // unselect if already selected
     selectedPiece = selectedPiece.equals(chessMousePos) ? new Vector(-1, -1) : chessMousePos.clone();
-
     ShiftPressed && (selectedPiece = new Vector(-1, -1));
-
     const selectedPieceType = !isOutside(selectedPiece) ? piecesMap[selectedPiece.y][selectedPiece.x] : PIECE_EMPTY;
     // unselect if clicked on empty piece
-    if (selectedPieceType === PIECE_EMPTY) selectedPiece = new Vector(-1, -1);
-
+    if (selectedPieceType === PIECE_EMPTY)
+        selectedPiece = new Vector(-1, -1);
     if (!isOutside(selectedPiece) && !ShiftPressed) {
         chessDomMap[selectedPiece.y][selectedPiece.x].classList.add("chess_selected");
-
         // change arrow type if knight
-        moveArrow.pathDirrect = (selectedPieceType as NotEmptyPiece).type !== PieceType.knight;
-
+        moveArrow.pathDirrect = selectedPieceType.type !== PieceType.knight;
         // for esthetic if(used to be unselected)
         if (selectedPiece.equals(new Vector(-1, -1))) {
             moveArrow.startPos = selectedPiece.clone();
             moveArrow.endPos = chessMousePos.clone();
             moveArrow.resetInterpolation();
-        } else {
+        }
+        else {
             moveArrow.interpolateTo({
                 startPos: selectedPiece.clone(),
                 endPos: chessMousePos.clone()
             });
         }
-
         acutalPossibleMoves = getPossiblesMoves(selectedPiece, piecesMap);
-        MainLog.set("moves", JSON.stringify(acutalPossibleMoves.map(v => v.type + " " + (v.checking === null ? 0 : 1))).replace(/\{\[/g, "$&\n"))
-
+        MainLog.set("moves", JSON.stringify(acutalPossibleMoves.map(v => v.type + " " + (v.checking === null ? 0 : 1))).replace(/\{\[/g, "$&\n"));
         for (let i of acutalPossibleMoves) {
             const domEl = chessDomMap[i.performOnto.y][i.performOnto.x];
             const style = moveTypeToStyle(i.type);
@@ -667,27 +577,23 @@ window.addEventListener('click', e => {
                 lastCheckingMoveDomElements.push(domEl);
             }
         }
-
-    } else {
+    }
+    else {
         moveArrow.interpolateTo({
             startPos: null,
             endPos: moveArrow.startPos
-        })
+        });
     }
-
     MainLog.set("selected piece", selectedPiece.toString());
 });
-
-window.addEventListener("mousedown", e => {
+window.addEventListener("mousedown", () => {
     if (isShiftPressed()) {
         customArrowStart();
     }
 });
-
-window.addEventListener("mouseup", e => {
+window.addEventListener("mouseup", () => {
     if (customArrowMode) {
         customArrowEnd();
     }
 });
-
 addEventsListenersToChessTilesDom();

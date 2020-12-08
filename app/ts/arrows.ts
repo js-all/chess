@@ -127,8 +127,7 @@ class Arrow {
         };
         this.transitionBezierCurve = transitionBezierCurve;
 
-        Arrow.ActiveArrows.add(this);
-        Arrow.DrawLogs.set(this.uuid, new Map());
+        this.enable();
     }
     getFinaleState(): ArrowState {
         return {    
@@ -170,6 +169,8 @@ class Arrow {
      */
     draw(ctx: CanvasRenderingContext2D) {
         const Logs = Arrow.DrawLogs.get(this.uuid) as Map<string, string>;
+        Logs.set("starting point", this.getFinaleState().startPos.toString());
+        Logs.set("ending point", this.getFinaleState().endPos.toString());
 
         let transitionFactor = (new Date().getTime() - this.transitionStartDate.getTime()) / this.transitionActualDuration;
         transitionFactor = transitionFactor > 1 ? 1 : transitionFactor;
@@ -401,18 +402,20 @@ class Arrow {
     /**
      * remove arrow from active arrow
      */
-    remove() {
+    disable() {
         if (Arrow.ActiveArrows.has(this)) {
             Arrow.ActiveArrows.delete(this);
         }
+        Arrow.DrawLogs.delete(this.uuid);
     }
     /**
-     * add arrrow back to active arrow
+     * add arrrow to active arrow
      */
-    addBack() {
+    enable() {
         if (!Arrow.ActiveArrows.has(this)) {
             Arrow.ActiveArrows.add(this);
         }
+        Arrow.DrawLogs.set(this.uuid, new Map());
     }
 }
 

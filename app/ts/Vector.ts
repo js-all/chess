@@ -40,7 +40,6 @@ class Vector {
         return this.x * v.x + this.y * v.y;
     }
     clamp(n: number = 4) {
-        const fac = Math.pow(10, n);
         const f = (nu: number) => parseFloat(nu.toFixed(n))
         return new Vector(
             f(this.x),
