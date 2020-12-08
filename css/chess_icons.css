@@ -24,7 +24,18 @@
     border: 5px white solid;
 }
 
+.chess_checking_move {
+    border: rgb(255, 174, 0) 4px solid;
+    filter: saturate(0.5);
+}
 
+.chess_row:nth-child(2n) .chess_checking_move:nth-child(2n), .chess_row:nth-child(2n+1) .chess_checking_move:nth-child(2n+1) {
+    background: linear-gradient(to top, rgb(255, 188, 44), rgb(252, 214, 133));
+}
+
+.chess_row:nth-child(2n+1) .chess_checking_move:nth-child(2n), .chess_row:nth-child(2n) .chess_checking_move:nth-child(2n+1) {
+    background: linear-gradient(to top, rgb(109, 74, 0), rgb(163, 112, 0));
+}
 
 .chess_piece_wrapper {
     width: 100%;

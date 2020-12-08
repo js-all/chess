@@ -140,21 +140,15 @@ table tr:last-child .chess_col:last-child {
     border-bottom-right-radius: var(--half_radius);
 }
 
-table tr:nth-child(2n) .chess_col:nth-child(2n) {
+table tr:nth-child(2n) .chess_col:nth-child(2n), table tr:nth-child(2n+1) .chess_col:nth-child(2n+1) {
     background: var(--even_background);
 }
 
-table tr:nth-child(2n+1) .chess_col:nth-child(2n+1) {
-    background: var(--even_background);
-}
-
-table tr:nth-child(2n+1) .chess_col:nth-child(2n) {
+table tr:nth-child(2n+1) .chess_col:nth-child(2n), table tr:nth-child(2n) .chess_col:nth-child(2n+1) {
     background: var(--odd_background);
 }
 
-table tr:nth-child(2n) .chess_col:nth-child(2n+1) {
-    background: var(--odd_background);
-}
+
 
 .chess_col {
     width: 9vmin;

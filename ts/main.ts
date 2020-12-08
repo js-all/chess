@@ -30,12 +30,13 @@ enum PieceType {
 type Piece = NotEmptyPiece | PieceType.empty;
 
 // move
-type MoveType = "move" | "capture" | "check";
+type MoveType = "move" | "capture";
 
 interface Move {
     performFrom: Vector,
     performOnto: Vector,
-    type: MoveType
+    type: MoveType,
+    checking: Vector | null
 }
 
 
@@ -74,12 +75,16 @@ const BLACK_PAWN: Piece = { type: PieceType.pawn, color: "black" },
     WHITE_BISHOP: Piece = { type: PieceType.bishop, color: "white" },
     WHITE_QUEEN: Piece = { type: PieceType.queen, color: "white" },
     WHITE_KING: Piece = { type: PieceType.king, color: "white" },
-    PIECE_EMPTY: Piece = PieceType.empty;
+    PIECE_EMPTY: PieceType.empty = PieceType.empty;
 
 /**
  * a map with every pieces
  */
 const piecesMap: PiecesMap = initBasicPieceMap();
+
+piecesMap[0][4] = PIECE_EMPTY;
+piecesMap[4][0] = BLACK_KING;
+piecesMap[4][7] = BLACK_KING;
 
 /**
  * a flag set to true when the mouse was inside last onMouseMove event
@@ -119,7 +124,14 @@ let selectedPiece: Vector = new Vector(-1, -1);
  * a list of the dom elements with special css class (used for moves highlights) to be able to clear them without having to loop throught every single one
  */
 let lastPossibleMovesDomElements: HTMLTableDataCellElement[] = [];
+/**
+ * every possible moves of the selected piece
+ */
 let acutalPossibleMoves: Move[] = [];
+/**
+ * list of every dom elements with the class chess_checking_move to remove it later
+ */
+let lastCheckingMoveDomElements: HTMLTableDataCellElement[] = [];
 
 
 /* -------------------------------------------------------------------------- */
@@ -301,6 +313,28 @@ function fixCanvasRenderingPlayingSideDomIssue() {
     }
 }
 
+function removeOldTilesCssClasses() {
+    // remove css class to last hovered tile
+    if (!isOutside(lastInsideMouseCoordinates)) {
+        chessDomMap[lastInsideMouseCoordinates.y][lastInsideMouseCoordinates.x].classList.remove('chess_hover');
+    }
+    // remove css classes for last highlighted tiles
+    for (let i of lastPossibleMovesDomElements) {
+        i.classList.remove(moveTypeToStyle("move").css);
+        i.classList.remove(moveTypeToStyle("capture").css);
+    }
+    lastPossibleMovesDomElements = [];
+
+    // remove last selected tile's css class
+    if (!selectedPiece.equals(new Vector(-1, -1)))
+        chessDomMap[selectedPiece.y][selectedPiece.x].classList.remove("chess_selected");
+
+    for(let i of lastCheckingMoveDomElements) {
+        i.classList.remove("chess_checking_move");
+    }
+    lastCheckingMoveDomElements = [];
+}
+
 /* -------------------------- MOVE RELATED FUNCTION ------------------------- */
 // ANCHOR .    move related
 
@@ -310,8 +344,6 @@ function moveTypeToStyle(moveType: MoveType) {
             return { css: "chess_possible_move", arrow: Arrow.DefaultSyles.move };
         case "capture":
             return { css: "chess_possible_capture", arrow: Arrow.DefaultSyles.capture };
-        case "check":
-            return { css: "chess_possible_capture", arrow: Arrow.DefaultSyles.check };
     }
 }
 
@@ -337,7 +369,7 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture 
             return "outside";
         }
     };
-    const checkLine = (from: Vector, dir: Vector, length: number, capture: "move or capture" | "only capture" | "only move" = "move or capture") => {
+    const checkLine = (from: Vector, piece: Piece, dir: Vector, length: number, capture: "move or capture" | "only capture" | "only move" = "move or capture") => {
         const udir = dir.floor();
         const resMoves: Move[] = [];
         for (let i = 1; i <= length; i++) {
@@ -345,14 +377,14 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture 
             const move: Move = {
                 performFrom: from,
                 performOnto: actualTile,
-                type: "move"
+                type: "move",
+                checking: null
             }
             if ((capture === "only capture" && !isMoveOutside(move)) || (pushIfValid(resMoves, move) === "not empty" && capture === "move or capture")) {
                 const actualPiece = pm[actualTile.y][actualTile.x];
                 if (actualPiece === PIECE_EMPTY) break;
                 const notEmptyPiece = actualPiece as NotEmptyPiece;
-                const fromPiece = pm[from.y][from.x];
-                if (fromPiece !== PIECE_EMPTY && notEmptyPiece.color !== (<NotEmptyPiece>fromPiece).color) {
+                if (piece !== PIECE_EMPTY && notEmptyPiece.color !== (<NotEmptyPiece>piece).color) {
                     move.type = "capture";
                     resMoves.push(move);
                 }
@@ -363,54 +395,65 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture 
     }
     // don't return anything if piece doesn't exist
     if (isOutside(pieceCoordinates)) return [];
-    const getCross = (from: Vector, length: number = 8) => {
+    const getCross = (from: Vector, piece: Piece, length: number = 8) => {
         return [
-            ...checkLine(from, new Vector(1, 0), length),
-            ...checkLine(from, new Vector(0, 1), length),
-            ...checkLine(from, new Vector(-1, 0), length),
-            ...checkLine(from, new Vector(0, -1), length),
+            ...checkLine(from, piece, new Vector(1, 0), length),
+            ...checkLine(from, piece, new Vector(0, 1), length),
+            ...checkLine(from, piece, new Vector(-1, 0), length),
+            ...checkLine(from, piece, new Vector(0, -1), length),
         ];
     };
-    const getDiagonalCross = (from: Vector, length: number = 8) => {
+    const getDiagonalCross = (from: Vector, piece: Piece, length: number = 8) => {
         return [
-            ...checkLine(from, new Vector(1, 1), length),
-            ...checkLine(from, new Vector(1, -1), length),
-            ...checkLine(from, new Vector(-1, 1), length),
-            ...checkLine(from, new Vector(-1, -1), length),
+            ...checkLine(from, piece, new Vector(1, 1), length),
+            ...checkLine(from, piece, new Vector(1, -1), length),
+            ...checkLine(from, piece, new Vector(-1, 1), length),
+            ...checkLine(from, piece, new Vector(-1, -1), length),
         ];
     };
-    switch (piece.type) {
-        case PieceType.bishop:
-            return getDiagonalCross(pieceCoordinates);
-        case PieceType.rook:
-            return getCross(pieceCoordinates);
-        case PieceType.king:
-            return getCross(pieceCoordinates, 1).concat(getDiagonalCross(pieceCoordinates, 1));
-        case PieceType.queen:
-            return getCross(pieceCoordinates).concat(getDiagonalCross(pieceCoordinates));
-        case PieceType.pawn:
-            const dir = new Vector(0, 1).multiply(piece.color === "white" ? -1 : 1);
-            const hasntMoved = piece.color === "black" ? pieceCoordinates.y === 1 : pieceCoordinates.y === 6;
-            const straightMove: Move[] = onlyCapture ? [] : checkLine(pieceCoordinates, dir, hasntMoved ? 2 : 1, "only move");
-            return [
-                ...straightMove,
-                ...checkLine(pieceCoordinates, dir.add(new Vector(1, 0)), 1, "only capture"),
-                ...checkLine(pieceCoordinates, dir.add(new Vector(-1, 0)), 1, "only capture")
-            ];
-        case PieceType.knight:
-            return [
-                ...checkLine(pieceCoordinates, new Vector(1, 2), 1),
-                ...checkLine(pieceCoordinates, new Vector(-1, 2), 1),
-                ...checkLine(pieceCoordinates, new Vector(1, -2), 1),
-                ...checkLine(pieceCoordinates, new Vector(-1, -2), 1),
-                ...checkLine(pieceCoordinates, new Vector(2, 1), 1),
-                ...checkLine(pieceCoordinates, new Vector(-2, 1), 1),
-                ...checkLine(pieceCoordinates, new Vector(2, -1), 1),
-                ...checkLine(pieceCoordinates, new Vector(-2, -1), 1),
-            ];
-        default:
-            return [];
+    const getMoves = (piece: NotEmptyPiece, pieceCoordinates: Vector) => {
+        switch (piece.type) {
+            case PieceType.bishop:
+                return getDiagonalCross(pieceCoordinates, piece);
+            case PieceType.rook:
+                return getCross(pieceCoordinates, piece);
+            case PieceType.king:
+                return getCross(pieceCoordinates, piece, 1).concat(getDiagonalCross(pieceCoordinates, piece, 1));
+            case PieceType.queen:
+                return getCross(pieceCoordinates, piece).concat(getDiagonalCross(pieceCoordinates, piece));
+            case PieceType.pawn:
+                const dir = new Vector(0, 1).multiply(piece.color === "white" ? -1 : 1);
+                const hasntMoved = piece.color === "black" ? pieceCoordinates.y === 1 : pieceCoordinates.y === 6;
+                const straightMove: Move[] = onlyCapture ? [] : checkLine(pieceCoordinates, piece, dir, hasntMoved ? 2 : 1, "only move");
+                return [
+                    ...straightMove,
+                    ...checkLine(pieceCoordinates, piece, dir.add(new Vector(1, 0)), 1, "only capture"),
+                    ...checkLine(pieceCoordinates, piece, dir.add(new Vector(-1, 0)), 1, "only capture")
+                ];
+            case PieceType.knight:
+                return [
+                    ...checkLine(pieceCoordinates, piece, new Vector(1, 2), 1),
+                    ...checkLine(pieceCoordinates, piece, new Vector(-1, 2), 1),
+                    ...checkLine(pieceCoordinates, piece, new Vector(1, -2), 1),
+                    ...checkLine(pieceCoordinates, piece, new Vector(-1, -2), 1),
+                    ...checkLine(pieceCoordinates, piece, new Vector(2, 1), 1),
+                    ...checkLine(pieceCoordinates, piece, new Vector(-2, 1), 1),
+                    ...checkLine(pieceCoordinates, piece, new Vector(2, -1), 1),
+                    ...checkLine(pieceCoordinates, piece, new Vector(-2, -1), 1),
+                ];
+            default:
+                return [];
+        }
     }
+    const possibleMoves = getMoves(piece, pieceCoordinates);
+    for (let m of possibleMoves) {
+        const checkingMoves = getMoves(piece, m.performOnto).filter(v => {
+            const performOntoPiece = pm[v.performOnto.y][v.performOnto.x];
+            return (performOntoPiece !== PIECE_EMPTY && performOntoPiece.color !== piece.color && performOntoPiece.type === PieceType.king && v.type === "capture");
+        });
+        m.checking = checkingMoves.length > 0 ? checkingMoves[0].performOnto : null;
+    }
+    return possibleMoves;
 }
 
 /* ------------------------ EVENTS RELATED FUNCTIONS ------------------------ */
@@ -425,13 +468,22 @@ function onKeyUpdate(removedKeys: Set<string>) {
     }
     if (isShiftPressed() && KeysPressed.has("KeyD")) {
         customArrowEnd();
-        customArrows.forEach(v => {
-            v.remove();
-        });
+        /**
+         * yes i know it looks dump clearing custom arrows then searching for them in activeArrows
+         * to delete them, but, for some god damn reason there's a way (if you do it fast enough)
+         * to create a custom arrow without it being added to Custom arrows, so i only can do it
+         * this way.
+         */
         customArrows.clear();
         Arrow.ActiveArrows.forEach(v => {
             if (v.style === Arrow.DefaultSyles.custom) {
-                v.remove()
+                v.interpolateTo({
+                    startPos: null,
+                    endPos: v.getFinaleState().startPos
+                })
+                setTimeout(() => {
+                    v.remove()
+                }, v.transitionDuration);
             };
         })
     }
@@ -534,21 +586,7 @@ window.addEventListener('mousemove', e => {
 window.addEventListener('click', e => {
     const ShiftPressed = isShiftPressed();
 
-    if (!isOutside(lastInsideMouseCoordinates)) {
-        chessDomMap[lastInsideMouseCoordinates.y][lastInsideMouseCoordinates.x].classList.remove('chess_hover');
-    }
-
-    for (let i of lastPossibleMovesDomElements) {
-        i.classList.remove(moveTypeToStyle("move").css);
-        i.classList.remove(moveTypeToStyle("capture").css);
-        i.classList.remove(moveTypeToStyle("check").css);
-    }
-
-    const usedToBeUnselected = selectedPiece.equals(new Vector(-1, -1));
-
-    // reset old selected piece
-    if (!usedToBeUnselected)
-        chessDomMap[selectedPiece.y][selectedPiece.x].classList.remove("chess_selected");
+    removeOldTilesCssClasses();
 
     // unselect if already selected
     selectedPiece = selectedPiece.equals(chessMousePos) ? new Vector(-1, -1) : chessMousePos.clone();
@@ -565,8 +603,8 @@ window.addEventListener('click', e => {
         // change arrow type if knight
         moveArrow.pathDirrect = (selectedPieceType as NotEmptyPiece).type !== PieceType.knight;
 
-        // for esthetic
-        if (usedToBeUnselected) {
+        // for esthetic if(used to be unselected)
+        if (selectedPiece.equals(new Vector(-1, -1))) {
             moveArrow.startPos = selectedPiece.clone();
             moveArrow.endPos = chessMousePos.clone();
             moveArrow.resetInterpolation();
@@ -578,13 +616,17 @@ window.addEventListener('click', e => {
         }
 
         acutalPossibleMoves = getPossiblesMoves(selectedPiece, piecesMap);
-        MainLog.set("moves", JSON.stringify(acutalPossibleMoves.map(v => v.type)).replace(/\{\[/g, "$&\n"))
+        MainLog.set("moves", JSON.stringify(acutalPossibleMoves.map(v => v.type + " " + (v.checking === null ? 0 : 1))).replace(/\{\[/g, "$&\n"))
 
         for (let i of acutalPossibleMoves) {
             const domEl = chessDomMap[i.performOnto.y][i.performOnto.x];
             const style = moveTypeToStyle(i.type);
             domEl.classList.add(style.css);
             lastPossibleMovesDomElements.push(domEl);
+            if(i.checking !== null) {
+                domEl.classList.add("chess_checking_move");
+                lastCheckingMoveDomElements.push(domEl);
+            }
         }
 
     } else {
