@@ -186,6 +186,17 @@ function initRandomPieceMap() {
     return emptyMap;
 }
 
+function clonePieceMap(pm: PiecesMap) {
+    return pm.map(v => [...v]) as PiecesMap;
+}
+
+function clonePiece(piece: Piece): Piece {
+    return piece === PIECE_EMPTY ? piece : {
+        color: piece.color,
+        type: piece.type
+    }
+}
+
 /* -------------------------- DOM RELATED FUCNTIONS ------------------------- */
 // ANCHOR .    dom related
 
@@ -329,7 +340,7 @@ function removeOldTilesCssClasses() {
     if (!selectedPiece.equals(new Vector(-1, -1)))
         chessDomMap[selectedPiece.y][selectedPiece.x].classList.remove("chess_selected");
 
-    for(let i of lastCheckingMoveDomElements) {
+    for (let i of lastCheckingMoveDomElements) {
         i.classList.remove("chess_checking_move");
     }
     lastCheckingMoveDomElements = [];
@@ -351,6 +362,11 @@ function isOutside(pos: Vector) {
     return pos.x < 0 || pos.y < 0 || pos.x > 7 || pos.y > 7
 };
 
+function performMove(move: Move, pm: PiecesMap) {
+    pm[move.performOnto.y][move.performOnto.x] = clonePiece(pm[move.performFrom.y][move.performFrom.x]);
+    pm[move.performFrom.y][move.performFrom.x] = PIECE_EMPTY;
+    return pm;
+}
 function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture = false): Move[] {
     // no moves possible from an empty piece
     if (pm[pieceCoordinates.y][pieceCoordinates.x] === PIECE_EMPTY) return [];
@@ -418,7 +434,30 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture 
             case PieceType.rook:
                 return getCross(pieceCoordinates, piece);
             case PieceType.king:
-                return getCross(pieceCoordinates, piece, 1).concat(getDiagonalCross(pieceCoordinates, piece, 1));
+                // return a list of legal king moves
+                return getCross(pieceCoordinates, piece, 1)
+                    .concat(getDiagonalCross(pieceCoordinates, piece, 1))
+                    // return a the list of possible moves for the king, without the ones that would make an enemy piece able to capture him
+                    .filter(move =>
+                        (performMove(move, clonePieceMap(pm)) as PiecesMap)
+                            // return an Array of rows stripped out of the piece that cannot capture the king if the move was performed
+                            .map((row, y, pieceMap) =>
+                                // return a row stripped of any piece that cannot capture the king if the move was performed
+                                row.filter((IKMPMPiece, x) =>
+                                    // return true if: the piece is not empty, the piece is an ennemy
+                                    IKMPMPiece !== PIECE_EMPTY && IKMPMPiece.color !== piece.color &&
+                                    // and the piece can eat the king
+                                    getPossiblesMoves(new Vector(x, y), pieceMap as PiecesMap)
+
+                                        .filter(m => m.type === "capture" && (pieceMap[m.performOnto.y][m.performOnto.x] as NotEmptyPiece).type === PieceType.king)
+                                        .length > 0
+                                ))
+                            // return an array of pieces that can capture the king if the move was performed
+                            .reduce((accumulator, currentValue) => accumulator.concat(...currentValue))
+                            // returns false if there's at least a piece that can capture the king if the move was performed
+                            .length < 1
+
+                    );
             case PieceType.queen:
                 return getCross(pieceCoordinates, piece).concat(getDiagonalCross(pieceCoordinates, piece));
             case PieceType.pawn:
@@ -623,7 +662,7 @@ window.addEventListener('click', e => {
             const style = moveTypeToStyle(i.type);
             domEl.classList.add(style.css);
             lastPossibleMovesDomElements.push(domEl);
-            if(i.checking !== null) {
+            if (i.checking !== null) {
                 domEl.classList.add("chess_checking_move");
                 lastCheckingMoveDomElements.push(domEl);
             }
