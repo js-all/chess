@@ -20,6 +20,9 @@ function generatePageCode(exclude = []) {
     const colliding = exclude.length > 0 ? exclude.map(col => col === res).reduce((o, v) => o || v) : false;
     return colliding ? generatePageCode(exclude) : res;
 }
+function verrifyPageCode(code, include = []) {
+    return code.match(/^[0-9A-Za-z]*$/g) && code.length === PageCodeLength && (include.length > 0 ? include.map(v => v === code).reduce((o, v) => o || v) : true);
+}
 /**
  * convert a number from any base to any other base
  * @param numIn the number that will be converted (an array of number, each number is a digit, 26(B10) = [2, 6]; 101(B2) = [1, 0 ,1]; FA(B16) = [16, 11])
@@ -50,5 +53,6 @@ function fromDigits(digits, b) {
 exports.default = {
     convertBase,
     generatePageCode,
-    abs
+    abs,
+    verrifyPageCode
 };

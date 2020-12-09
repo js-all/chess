@@ -80,7 +80,7 @@ const BLACK_PAWN: Piece = { type: PieceType.pawn, color: "black" },
 /**
  * a map with every pieces
  */
-const piecesMap: PiecesMap = initRandomPieceMap();
+const piecesMap: PiecesMap = initBasicPieceMap();
 
 /**
  * a flag set to true when the mouse was inside last onMouseMove event
@@ -448,11 +448,11 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture 
                                     // if the piece is a king (special case to avoid the king infinitely calling getPossibleMoves on each others)
                                     (IKMPMPiece.type === PieceType.king ?
                                         // make sure than the distance between both kings does not exceed 1 (in both y and x)
-                                        Math.abs(x - move.performOnto.x) <= 1 && Math.abs(y - move.performOnto.y) :
+                                        Math.abs(x - move.performOnto.x) <= 1 && Math.abs(y - move.performOnto.y) <= 1 :
                                         // and the piece can eat the king
                                         getPossiblesMoves(new Vector(x, y), pieceMap as PiecesMap)
-                                            //remove any moves that does not capture the king
-                                            .filter(m => m.type === "capture" && (pieceMap[m.performOnto.y][m.performOnto.x] as NotEmptyPiece).type === PieceType.king)
+                                            //remove any moves that does not capture THE king
+                                            .filter(m => m.type === "capture" && move.performOnto.equals(m.performOnto))
                                             // return true if a at leat a move can capture the king
                                             .length > 0)
                                 ))

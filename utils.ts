@@ -9,12 +9,16 @@ const PageCodeLength = 5;
  */
 function generatePageCode(exclude: string[] = []): string {
     let res = "";
-    for(let i = 0; i < PageCodeLength; i++) {
+    for (let i = 0; i < PageCodeLength; i++) {
         const chr = Math.floor(crypto.randomBytes(1)[0] / 256 * (PageCodeAllowedCharacters.length));
         res += PageCodeAllowedCharacters[chr];
     }
     const colliding = exclude.length > 0 ? exclude.map(col => col === res).reduce((o, v) => o || v) : false;
     return colliding ? generatePageCode(exclude) : res;
+}
+
+function verrifyPageCode(code: string, include: string[] = []) {
+    return code.match(/^[0-9A-Za-z]*$/g) && code.length === PageCodeLength && (include.length > 0 ? include.map(v => v === code).reduce((o, v) => o || v) : true);
 }
 
 /**
@@ -27,7 +31,7 @@ function convertBase(numIn: number[], baseFrom: number, baseOut: number) {
     return toDigits(fromDigits(numIn, baseFrom), baseOut);
 }
 
-function abs(absPath :string) {
+function abs(absPath: string) {
     return path.join(__dirname, absPath);
 }
 
@@ -51,5 +55,6 @@ function fromDigits(digits: number[], b: number) {
 export default {
     convertBase,
     generatePageCode,
-    abs
+    abs,
+    verrifyPageCode
 }
