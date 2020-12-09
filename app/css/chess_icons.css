@@ -12,7 +12,7 @@
 }
 
 .chess_possible_capture {
-    filter: sepia(1) saturate(0.5) hue-rotate(-80deg);
+    filter: sepia(1) saturate(0.7) hue-rotate(-80deg);
     border: 3px solid rgb(117, 117, 117);
 }
 
