@@ -419,25 +419,6 @@ class Arrow {
     }
 }
 
-{
-    function draw() {
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        Arrow.renderArrows(ctx, showLogs);
-
-        // visuallizeBezierCurve(
-        //     Arrow.DefaultTransitionBezierCurve.points.p1,
-        //     Arrow.DefaultTransitionBezierCurve.points.p2,
-        //     Arrow.DefaultTransitionBezierCurve.points.p3,
-        //     Arrow.DefaultTransitionBezierCurve.points.p4,
-        //     2000,
-        //     200
-        // );
-
-        requestAnimationFrame(draw);
-    }
-    draw();
-}
-
 /**
  * get the size (in pixel, real coordinates) of a chess Tile
  */

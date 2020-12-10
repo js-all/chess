@@ -2,6 +2,7 @@
 /* -------------------------------------------------------------------------- */
 /*                                 DEFINITIONS                                */
 /* -------------------------------------------------------------------------- */
+// ANCHOR GLOBALS
 var PieceType;
 (function (PieceType) {
     PieceType[PieceType["pawn"] = 0] = "pawn";
@@ -12,8 +13,6 @@ var PieceType;
     PieceType[PieceType["king"] = 5] = "king";
     PieceType[PieceType["empty"] = 6] = "empty";
 })(PieceType || (PieceType = {}));
-/* ------------------------- CONSTANTS AND GLOBALSS ------------------------- */
-// ANCHOR GLOBALS
 const TableDomElement = document.querySelector('table');
 /**
  * 0 - white
@@ -24,7 +23,7 @@ const playingSide = 0;
 /**
  * a map to get the dom element of any corresponding chess coordinates
  */
-const chessDomMap = generateDom(playingSide);
+let chessDomMap;
 /**
  * the Mouse position in chess coordinates (-1, -1 if out of the game board)
  */
@@ -33,11 +32,11 @@ const chessMousePos = new Vector(-1, -1);
  * a set with every pressed down keys
  */
 const KeysPressed = new Set();
-const BLACK_PAWN = { type: PieceType.pawn, color: "black" }, BLACK_ROOK = { type: PieceType.rook, color: "black" }, BLACK_KNIGHT = { type: PieceType.knight, color: "black" }, BLACK_BISHOP = { type: PieceType.bishop, color: "black" }, BLACK_QUEEN = { type: PieceType.queen, color: "black" }, BLACK_KING = { type: PieceType.king, color: "black" }, WHITE_PAWN = { type: PieceType.pawn, color: "white" }, WHITE_ROOK = { type: PieceType.rook, color: "white" }, WHITE_KNIGHT = { type: PieceType.knight, color: "white" }, WHITE_BISHOP = { type: PieceType.bishop, color: "white" }, WHITE_QUEEN = { type: PieceType.queen, color: "white" }, WHITE_KING = { type: PieceType.king, color: "white" }, PIECE_EMPTY = PieceType.empty;
+const PIECE_EMPTY = PieceType.empty;
 /**
  * a map with every pieces
  */
-const piecesMap = initBasicPieceMap();
+let piecesMap;
 /**
  * a flag set to true when the mouse was inside last onMouseMove event
  */
@@ -82,13 +81,17 @@ let acutalPossibleMoves = [];
  * list of every dom elements with the class chess_checking_move to remove it later
  */
 let lastCheckingMoveDomElements = [];
+/**
+ * keep track of if the turn is ours
+ */
+let clientTurn = false;
+let onSendMove = () => { };
 /* -------------------------------------------------------------------------- */
 /*                                  FUNCTIONS                                 */
 /* -------------------------------------------------------------------------- */
 // ANCHOR FUNCTIONS
 /* --------------------------- PIECEMAP GENERATION -------------------------- */
 // ANCHOR .    piecemap generation
-updatePieceDom(piecesMap);
 /**
  * return an piece map full of empty pieces
  */
@@ -104,6 +107,7 @@ function initEmptyPieceMap() {
  * return a piece map with regular chess starting position
  */
 function initBasicPieceMap() {
+    const BLACK_PAWN = { type: PieceType.pawn, color: "black" }, BLACK_ROOK = { type: PieceType.rook, color: "black" }, BLACK_KNIGHT = { type: PieceType.knight, color: "black" }, BLACK_BISHOP = { type: PieceType.bishop, color: "black" }, BLACK_QUEEN = { type: PieceType.queen, color: "black" }, BLACK_KING = { type: PieceType.king, color: "black" }, WHITE_PAWN = { type: PieceType.pawn, color: "white" }, WHITE_ROOK = { type: PieceType.rook, color: "white" }, WHITE_KNIGHT = { type: PieceType.knight, color: "white" }, WHITE_BISHOP = { type: PieceType.bishop, color: "white" }, WHITE_QUEEN = { type: PieceType.queen, color: "white" }, WHITE_KING = { type: PieceType.king, color: "white" };
     return [
         [BLACK_ROOK, BLACK_KNIGHT, BLACK_BISHOP, BLACK_QUEEN, BLACK_KING, BLACK_BISHOP, BLACK_KNIGHT, BLACK_ROOK],
         [BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN,],
@@ -120,10 +124,9 @@ function initBasicPieceMap() {
  */
 function initRandomPieceMap() {
     const emptyMap = initEmptyPieceMap();
-    const pieces = [BLACK_ROOK, BLACK_KING, BLACK_BISHOP, BLACK_KING, BLACK_QUEEN, BLACK_PAWN, WHITE_ROOK, WHITE_KNIGHT, WHITE_BISHOP, WHITE_KING, WHITE_QUEEN, WHITE_PAWN, PIECE_EMPTY, PIECE_EMPTY];
     for (let y = 0; y < 8; y++) {
         for (let x = 0; x < 8; x++) {
-            emptyMap[y][x] = pieces[ranInt(0, pieces.length - 1)];
+            emptyMap[y][x] = ranInt(0, 1) ? PIECE_EMPTY : { color: ranInt(0, 1) ? "white" : "black", type: ranInt(0, 5) };
         }
     }
     return emptyMap;
@@ -362,7 +365,6 @@ function getPossiblesMoves(pieceCoordinates, pm, onlyCapture = false) {
             case PieceType.rook:
                 return getCross(pieceCoordinates, piece);
             case PieceType.king:
-                debugger;
                 // technically a one liner
                 // return a list of legal king moves
                 return getCross(pieceCoordinates, piece, 1)
@@ -478,9 +480,6 @@ function customArrowStart() {
         return;
     const arrow = new Arrow(chessMousePos.clone(), chessMousePos.clone(), true, Arrow.DefaultSyles.custom);
     customArrows.add(arrow);
-    if (!customArrows.has(arrow)) {
-        console.log('FUCK');
-    }
     selectedCustomArrow = arrow;
     customArrowMode = true;
 }
@@ -507,99 +506,111 @@ function customArrowEnd() {
     customArrowMode = false;
     selectedCustomArrow = null;
 }
-updateCanvasSize();
 /* -------------------------------------------------------------------------- */
 /*                               EVENT LISTENERS                              */
 /* -------------------------------------------------------------------------- */
 // ANCHOR EVENTS LISTENERS
-window.addEventListener('resize', updateCanvasSize);
-window.addEventListener('keydown', e => {
-    if (!KeysPressed.has(e.code)) {
-        KeysPressed.add(e.code);
-    }
-    onKeyUpdate(new Set());
-});
-window.addEventListener('keyup', e => {
-    const removed = new Set();
-    if (KeysPressed.has(e.code)) {
-        KeysPressed.delete(e.code);
-        removed.add(e.code);
-    }
-    onKeyUpdate(removed);
-});
-window.addEventListener('mousemove', e => {
-    const clientRect = TableDomElement.getBoundingClientRect();
-    const tableRelativeCoord = new Vector(e.clientX, e.clientY).substract(new Vector(clientRect.left, clientRect.top));
-    const units = getChessToRealCoordUnits();
-    const outside = (tableRelativeCoord.x > clientRect.width || tableRelativeCoord.y > clientRect.height || tableRelativeCoord.x < units.x || tableRelativeCoord.y < units.y);
-    if (outside && mouseWasInsideLastCall) {
-        lastInsideMouseCoordinates = chessMousePos.clone();
-        mouseWasInsideLastCall = false;
-        chessMousePos.set(new Vector(-1, -1));
-    }
-    else if (!outside) {
-        // if mouse was inside and the last coordinates were inside (to avoid getting negative index)
-        if (!mouseWasInsideLastCall && !isOutside(lastInsideMouseCoordinates)) {
-            chessDomMap[lastInsideMouseCoordinates.y][lastInsideMouseCoordinates.x].classList.remove('chess_hover');
+function addAllEventsListeners() {
+    window.addEventListener('resize', updateCanvasSize);
+    window.addEventListener('keydown', e => {
+        if (!KeysPressed.has(e.code)) {
+            KeysPressed.add(e.code);
         }
-        mouseWasInsideLastCall = true;
-    }
-});
-window.addEventListener('click', () => {
-    const ShiftPressed = isShiftPressed();
-    removeOldTilesCssClasses();
-    // unselect if already selected
-    selectedPiece = selectedPiece.equals(chessMousePos) ? new Vector(-1, -1) : chessMousePos.clone();
-    ShiftPressed && (selectedPiece = new Vector(-1, -1));
-    const selectedPieceType = !isOutside(selectedPiece) ? piecesMap[selectedPiece.y][selectedPiece.x] : PIECE_EMPTY;
-    // unselect if clicked on empty piece
-    if (selectedPieceType === PIECE_EMPTY)
-        selectedPiece = new Vector(-1, -1);
-    if (!isOutside(selectedPiece) && !ShiftPressed) {
-        chessDomMap[selectedPiece.y][selectedPiece.x].classList.add("chess_selected");
-        // change arrow type if knight
-        moveArrow.pathDirrect = selectedPieceType.type !== PieceType.knight;
-        // for esthetic if(used to be unselected)
-        if (selectedPiece.equals(new Vector(-1, -1))) {
-            moveArrow.startPos = selectedPiece.clone();
-            moveArrow.endPos = chessMousePos.clone();
-            moveArrow.resetInterpolation();
+        onKeyUpdate(new Set());
+    });
+    window.addEventListener('keyup', e => {
+        const removed = new Set();
+        if (KeysPressed.has(e.code)) {
+            KeysPressed.delete(e.code);
+            removed.add(e.code);
+        }
+        onKeyUpdate(removed);
+    });
+    window.addEventListener('mousemove', e => {
+        const clientRect = TableDomElement.getBoundingClientRect();
+        const tableRelativeCoord = new Vector(e.clientX, e.clientY).substract(new Vector(clientRect.left, clientRect.top));
+        const units = getChessToRealCoordUnits();
+        const outside = (tableRelativeCoord.x > clientRect.width || tableRelativeCoord.y > clientRect.height || tableRelativeCoord.x < units.x || tableRelativeCoord.y < units.y);
+        if (outside && mouseWasInsideLastCall) {
+            lastInsideMouseCoordinates = chessMousePos.clone();
+            mouseWasInsideLastCall = false;
+            chessMousePos.set(new Vector(-1, -1));
+        }
+        else if (!outside) {
+            // if mouse was inside and the last coordinates were inside (to avoid getting negative index)
+            if (!mouseWasInsideLastCall && !isOutside(lastInsideMouseCoordinates)) {
+                chessDomMap[lastInsideMouseCoordinates.y][lastInsideMouseCoordinates.x].classList.remove('chess_hover');
+            }
+            mouseWasInsideLastCall = true;
+        }
+    });
+    window.addEventListener('click', () => {
+        const ShiftPressed = isShiftPressed();
+        removeOldTilesCssClasses();
+        // unselect if already selected
+        selectedPiece = selectedPiece.equals(chessMousePos) ? new Vector(-1, -1) : chessMousePos.clone();
+        ShiftPressed && (selectedPiece = new Vector(-1, -1));
+        const selectedPieceType = !isOutside(selectedPiece) ? piecesMap[selectedPiece.y][selectedPiece.x] : PIECE_EMPTY;
+        let moveClicked = null;
+        if (clientTurn && acutalPossibleMoves.length > 0 && acutalPossibleMoves.map(m => { if (m.performOnto.equals(selectedPiece)) {
+            moveClicked = m;
+            return true;
+        } return false; }).reduce((o, v) => o || v)) {
+            selectedPiece = new Vector(-1, -1);
+            performMove(moveClicked, piecesMap);
+            updatePieceDom(piecesMap);
+            acutalPossibleMoves.splice(0);
+            onSendMove(moveClicked);
+        }
+        // unselect if clicked on empty piece
+        if (selectedPieceType === PIECE_EMPTY)
+            selectedPiece = new Vector(-1, -1);
+        if (!isOutside(selectedPiece) && !ShiftPressed) {
+            chessDomMap[selectedPiece.y][selectedPiece.x].classList.add("chess_selected");
+            // change arrow type if knight
+            moveArrow.pathDirrect = selectedPieceType.type !== PieceType.knight;
+            // for esthetic if(used to be unselected)
+            if (selectedPiece.equals(new Vector(-1, -1))) {
+                moveArrow.startPos = selectedPiece.clone();
+                moveArrow.endPos = chessMousePos.clone();
+                moveArrow.resetInterpolation();
+            }
+            else {
+                moveArrow.interpolateTo({
+                    startPos: selectedPiece.clone(),
+                    endPos: chessMousePos.clone()
+                });
+            }
+            acutalPossibleMoves = getPossiblesMoves(selectedPiece, piecesMap);
+            MainLog.set("moves", JSON.stringify(acutalPossibleMoves.map(v => v.type + " " + (v.checking === null ? 0 : 1))).replace(/\{\[/g, "$&\n"));
+            for (let i of acutalPossibleMoves) {
+                const domEl = chessDomMap[i.performOnto.y][i.performOnto.x];
+                const style = moveTypeToStyle(i.type);
+                domEl.classList.add(style.css);
+                lastPossibleMovesDomElements.push(domEl);
+                if (i.checking !== null) {
+                    domEl.classList.add("chess_checking_move");
+                    lastCheckingMoveDomElements.push(domEl);
+                }
+            }
         }
         else {
             moveArrow.interpolateTo({
-                startPos: selectedPiece.clone(),
-                endPos: chessMousePos.clone()
+                startPos: null,
+                endPos: moveArrow.startPos
             });
+            acutalPossibleMoves.splice(0);
         }
-        acutalPossibleMoves = getPossiblesMoves(selectedPiece, piecesMap);
-        MainLog.set("moves", JSON.stringify(acutalPossibleMoves.map(v => v.type + " " + (v.checking === null ? 0 : 1))).replace(/\{\[/g, "$&\n"));
-        for (let i of acutalPossibleMoves) {
-            const domEl = chessDomMap[i.performOnto.y][i.performOnto.x];
-            const style = moveTypeToStyle(i.type);
-            domEl.classList.add(style.css);
-            lastPossibleMovesDomElements.push(domEl);
-            if (i.checking !== null) {
-                domEl.classList.add("chess_checking_move");
-                lastCheckingMoveDomElements.push(domEl);
-            }
+        MainLog.set("selected piece", selectedPiece.toString());
+    });
+    window.addEventListener("mousedown", () => {
+        if (isShiftPressed()) {
+            customArrowStart();
         }
-    }
-    else {
-        moveArrow.interpolateTo({
-            startPos: null,
-            endPos: moveArrow.startPos
-        });
-    }
-    MainLog.set("selected piece", selectedPiece.toString());
-});
-window.addEventListener("mousedown", () => {
-    if (isShiftPressed()) {
-        customArrowStart();
-    }
-});
-window.addEventListener("mouseup", () => {
-    if (customArrowMode) {
-        customArrowEnd();
-    }
-});
-addEventsListenersToChessTilesDom();
+    });
+    window.addEventListener("mouseup", () => {
+        if (customArrowMode) {
+            customArrowEnd();
+        }
+    });
+}

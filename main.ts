@@ -1,8 +1,8 @@
+import http from 'http';
 import express from 'express';
 import { Server, Socket } from 'socket.io';
-import utils from './utils';
-import path from 'path';
-import http from 'http'
+import * as utils from './utils';
+import { Game } from './game'
 
 const app = express();
 const server = http.createServer(app);
@@ -21,6 +21,9 @@ app.get('/', (req, res) => {
 app.get('/p/:game_code', (req, res) => {
     const code = req.params.game_code || "";
     if (utils.verrifyPageCode(code)) {
+        if (!Game.List.has(code)) {
+            new Game(code);
+        }
         res.sendFile(abs('./app/index.html'));
     } else {
         res.redirect('/random');
@@ -39,26 +42,13 @@ app.get('/random', (req, res) => {
 io.of("/p").on("connection", (socket: Socket) => {
     ///@ts-expect-error
     const code: string = socket.handshake.headers.referer.split('/').pop();
-    console.log(code);
+    const game = Game.List.get(code);
+    if (game === undefined) {
+        console.error('attempting to connect websockets to uncreated game: ' + code);
+        socket.disconnect();
+        return;
+    }
+    game.addPlayer(socket);
 });
 
 server.listen(42069)
-/**
- * TODO: ADD GAMES,
- * for now just a function that create a new game, is stored in some kind of list with every games' data:
- * Map<string>: {
- *      "GameCode": {
- *          gameCode: string,
- *          gameState: piecesMap,
- *          playersSocketID (?), (to know if the game is full)
- *          creationDate: Date,
- *          lastModification: Date
- *          playerTurn,
- *      }
- * }
- * then add backend for gameStateReq (sends back the gameState of the ongoing game), OpponentMove, PlayerMove,
- * implement timeout (lastModification > timeout (~1h))
- * TODO forfeit ui on frontend, when right cliking on king
- *
- * TODO implement main page, and game creation page as well as timer ui, AI and gameStats (who's winning).
- */
