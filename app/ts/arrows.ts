@@ -80,6 +80,10 @@ class Arrow {
         check: {
             outline: "rgba(0, 0, 0, 0.7)",
             fill: "transparent"
+        },
+        disabled: {
+            outline: "transparent",
+            fill: "rgb(100, 100, 100)"
         }
     };
     startPos: Vector;
@@ -318,6 +322,9 @@ class Arrow {
         let logsAreEmpty = true;
         Arrow.DrawLogs.forEach(v => logsAreEmpty = logsAreEmpty && v.size < 1);
         if (!logsAreEmpty) {
+            ctx.save();
+            ctx.resetTransform();
+
             const Colors = {
                 U: "rgb(0, 153, 255)",
                 P: "rgb(255, 255, 255)",
@@ -383,7 +390,7 @@ class Arrow {
                 ctx.fillText(stringWithOffset.text, 10, currentOffset);
                 currentOffset += stringWithOffset.offset;
             }
-
+            ctx.restore();
         }
     }
     /**

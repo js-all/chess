@@ -15,12 +15,7 @@ enum PieceType {
 
 
 const TableDomElement = document.querySelector('table') as HTMLTableElement;
-/**
- * 0 - white
- * 
- * 1 - black
- */
-const playingSide: 0 | 1 = 0;
+
 /**
  * a map to get the dom element of any corresponding chess coordinates
  */
@@ -92,7 +87,7 @@ let lastCheckingMoveDomElements: HTMLTableDataCellElement[] = [];
  * keep track of if the turn is ours
  */
 let clientTurn = false;
-let onSendMove: (move: Move) => any = () => {};
+let onSendMove: (move: Move) => any = () => { };
 
 
 /* -------------------------------------------------------------------------- */
@@ -252,7 +247,7 @@ function updatePieceDom(pm: PiecesMap) {
     }
 }
 
-function addEventsListenersToChessTilesDom() {
+function addEventsListenersToChessTilesDom(playingSide: 0 | 1) {
     for (let x = 0; x < 8; x++) {
         for (let y = 0; y < 8; y++) {
             chessDomMap[x][y].addEventListener('mouseover', () => {
@@ -267,10 +262,11 @@ function addEventsListenersToChessTilesDom() {
                         startPos: selectedPiece.clone(),
                         endPos: chessMousePos.clone()
                     });
-                    moveArrow.style = Arrow.DefaultSyles.wrong;
+                    const arrowCommingfromEnemyPiece = (piecesMap[selectedPiece.y][selectedPiece.x] as NotEmptyPiece).color !== (playingSide ? "black" : "white");
+                    moveArrow.style = arrowCommingfromEnemyPiece ? Arrow.DefaultSyles.disabled : clientTurn ? Arrow.DefaultSyles.wrong : Arrow.DefaultSyles.disabled;
                     for (let i of acutalPossibleMoves) {
                         if (i.performOnto.equals(chessMousePos)) {
-                            moveArrow.style = moveTypeToStyle(i.type).arrow;
+                            moveArrow.style = arrowCommingfromEnemyPiece ? Arrow.DefaultSyles.disabled : clientTurn ? moveTypeToStyle(i.type).arrow : Arrow.DefaultSyles.disabled;
                             break;
                         }
                     }
@@ -286,7 +282,7 @@ function addEventsListenersToChessTilesDom() {
     }
 }
 
-function fixCanvasRenderingPlayingSideDomIssue() {
+function fixCanvasRenderingPlayingSideDomIssue(playingSide: 0 | 1) {
     if (playingSide === 1) {
         const units = getChessToRealCoordUnits();
         ctx.translate(ctx.canvas.width + units.x, ctx.canvas.height + units.y);
@@ -510,7 +506,7 @@ function isShiftPressed() {
     return (KeysPressed.has("ShiftLeft") || KeysPressed.has("ShiftRight"));
 }
 
-function updateCanvasSize() {
+function updateCanvasSize(playingSide: 0 | 1) {
     const tableHeight = TableDomElement.getBoundingClientRect().height;
     const tableWidth = TableDomElement.getBoundingClientRect().width;
     canvasOverlay.style.width = tableWidth + "px";
@@ -518,7 +514,7 @@ function updateCanvasSize() {
     canvasOverlay.width = tableWidth;
     canvasOverlay.height = tableHeight;
     ctx.resetTransform();
-    fixCanvasRenderingPlayingSideDomIssue();
+    fixCanvasRenderingPlayingSideDomIssue(playingSide);
 }
 
 function customArrowStart() {
@@ -557,9 +553,9 @@ function customArrowEnd() {
 /* -------------------------------------------------------------------------- */
 // ANCHOR EVENTS LISTENERS
 
-function addAllEventsListeners() {
+function addAllEventsListeners(playingSide: 0 | 1) {
 
-    window.addEventListener('resize', updateCanvasSize);
+    window.addEventListener('resize', () => updateCanvasSize(playingSide));
 
     window.addEventListener('keydown', e => {
         if (!KeysPressed.has(e.code)) {
@@ -610,11 +606,15 @@ function addAllEventsListeners() {
 
         let moveClicked: Move | null = null;
         if (clientTurn && acutalPossibleMoves.length > 0 && acutalPossibleMoves.map(m => { if (m.performOnto.equals(selectedPiece)) { moveClicked = m; return true; } return false; }).reduce((o, v) => o || v)) {
-            selectedPiece = new Vector(-1, -1);
-            performMove(moveClicked as unknown as Move, piecesMap);
-            updatePieceDom(piecesMap);
-            acutalPossibleMoves.splice(0);
-            onSendMove(moveClicked as unknown as Move);
+            const move = moveClicked as unknown as Move;
+            const movingPiece = piecesMap[move.performFrom.y][move.performFrom.x];
+            if (movingPiece !== PIECE_EMPTY && movingPiece.color === (playingSide ? "black" : "white")) {
+                selectedPiece = new Vector(-1, -1);
+                performMove(move, piecesMap);
+                updatePieceDom(piecesMap);
+                acutalPossibleMoves.splice(0);
+                onSendMove(move);
+            }
         }
 
         // unselect if clicked on empty piece

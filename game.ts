@@ -19,7 +19,7 @@
  */
 import { Socket } from 'socket.io';
 import { textChangeRangeIsUnchanged } from 'typescript';
-import { generatePageCode, verrifyPageCode, initBasicPieceMap, performMove } from './utils'
+import { generatePageCode, verrifyPageCode, initBasicPieceMap, performMove, PieceType, verrifyMove, Vector } from './utils'
 
 class Game {
     static List: Map<string, Game> = new Map();
@@ -43,8 +43,8 @@ class Game {
      */
     addPlayer(socket: Socket) {
         const addToPlayersSocket = () => {
-            if(this.playersSocket[0] === null) return this.playersSocket[0] = socket;
-            else if(this.playersSocket[1] === null) return this.playersSocket[1] = socket;
+            if (this.playersSocket[0] === null) return this.playersSocket[0] = socket;
+            else if (this.playersSocket[1] === null) return this.playersSocket[1] = socket;
         };
         const getPlayersSocketLength = () => {
             return (this.playersSocket[0] === null ? 0 : 1) + (this.playersSocket[1] === null ? 0 : 1);
@@ -58,7 +58,7 @@ class Game {
             socket.on('disconnect', () => {
                 console.log(`game ${this.gameCode}: [-] ${socket.id} (${player})`);
                 this.playersSocket[player] = null;
-                if(getPlayersSocketLength() < 1) {
+                if (getPlayersSocketLength() < 1) {
                     this.close();
                 }
             });
@@ -67,20 +67,29 @@ class Game {
                 playerTurn: this.playerTurn
             } as GameMetadata);
             addToPlayersSocket();
-            if(player === this.playerTurn) {
+            if (player === this.playerTurn) {
                 socket.emit('Turn');
             }
             socket.on('Move', (move: Move) => {
-                if(this.playerTurn === player) {
+                const movingPiece = this.gameState[move.performFrom.y][move.performFrom.x];
+                move.checking = move.checking !== null ? Vector.fromObject(move.checking as any) : null;
+                move.performFrom = Vector.fromObject(move.performFrom as any);
+                move.performOnto = Vector.fromObject(move.performOnto as any);
+                if (this.playerTurn === player && movingPiece !== PieceType.empty && movingPiece.color === (player ? "black" : "white") && verrifyMove(move, this.gameState)) {
                     this.playerTurn = player === 0 ? 1 : 0;
                     performMove(move, this.gameState);
-                    socket.emit('GameStateUpdate', this.gameState);
+                    this.broadcastToPlayers("GameStateUpdate", this.gameState);
+                    this.playersSocket[this.playerTurn]?.emit('Turn');
                 } else {
                     socket.emit('InvalidMoveError');
                     socket.emit('GameStateUpdate', this.gameState);
                 }
             });
         }
+    }
+    broadcastToPlayers(ev: string, ...args: any[]) {
+        if (this.playersSocket[0] !== null) this.playersSocket[0].emit(ev, ...args);
+        if (this.playersSocket[1] !== null) this.playersSocket[1].emit(ev, ...args);
     }
     close() {
         Game.List.delete(this.gameCode);
