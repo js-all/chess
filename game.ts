@@ -3,6 +3,12 @@
  * TODO forfeit ui on frontend, when right cliking on king
  *
  * TODO implement main page, and game creation page as well as timer ui, AI and gameStats (who's winning).
+ * 
+ * TODO imlplement checking,
+ * on GameStateUpdate, send the move in metadata and store a checkied flag on the server side for the players to know if they are doing a valid move
+ * the client will receive a move with the checked attribute, it will then show an arrow pointing from the checking piece to the king (multiples ones if needed)
+ * then block any move that doesn't uncheck the king (gonna need a isChecked function to know if the kings is still checked). for now if check mate, just don't do anything
+ * it will result in an ethernal turn for the loosing player (no way of moving)
  */
 import { Socket } from 'socket.io';
 import { initBasicPieceMap, PieceType } from './app/ts/piece';
@@ -67,11 +73,14 @@ class Game {
                 if (this.playerTurn === player && movingPiece !== PieceType.empty && movingPiece.color === (player ? "black" : "white") && verrifyMove(move, this.gameState)) {
                     this.playerTurn = player === 0 ? 1 : 0;
                     performMove(move, this.gameState);
-                    this.broadcastToPlayers("GameStateUpdate", this.gameState);
+                    this.broadcastToPlayers("GameStateUpdate", this.gameState, {
+                        playerTurn: this.playerTurn,
+                        lastMove: move
+                    } as GameMetadata);
                     this.playersSocket[this.playerTurn]?.emit('Turn');
                 } else {
                     socket.emit('InvalidMoveError');
-                    socket.emit('GameStateUpdate', this.gameState);
+                    socket.emit('GameStateUpdate', this.gameState, {});
                 }
             });
         }

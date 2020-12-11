@@ -37,16 +37,17 @@ socket.on('disconnect', () => {
 });
 
 socket.on('GameState', (gameState: PiecesMap, metadata: GameMetadata) => {
+    const playingSide = metadata.playingSide || 0;
     setPieceMap(gameState)
-    setChessDomMap(generateDom(metadata.playingSide));
+    setChessDomMap(generateDom(playingSide));
     updatePieceDom(getPieceMap());
-    addEventsListenersToChessTilesDom(metadata.playingSide);
-    updateCanvasSize(metadata.playingSide);
+    addEventsListenersToChessTilesDom(playingSide);
+    updateCanvasSize(playingSide);
     onSendMove((move) => {
         socket.emit('Move', move);
         setTurn(false);
     })
-    addAllEventsListeners(metadata.playingSide);
+    addAllEventsListeners(playingSide);
     draw();
 });
 

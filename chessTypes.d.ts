@@ -22,8 +22,9 @@ interface Move {
     checking: Vector | null
 }
 interface GameMetadata {
-    playingSide: 0 | 1;
-    playerTurn: 0 | 1;
+    playingSide?: 0 | 1;
+    playerTurn?: 0 | 1;
+    lastMove: Move;
 }
 
 type BezierOutput = "point" | "y coordinate" | "x coordinate" | "length from start";
