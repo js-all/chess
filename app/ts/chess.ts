@@ -1,17 +1,12 @@
+import Vector from './Vector';
+import { Arrow, getChessToRealCoordUnits, updateCanvasSize } from './arrows';
+import { PieceType, PIECE_EMPTY } from './piece';
+import { getPossiblesMoves, isOutside, performMove } from './moves'
+
 /* -------------------------------------------------------------------------- */
 /*                                 DEFINITIONS                                */
 /* -------------------------------------------------------------------------- */
 // ANCHOR GLOBALS
-
-enum PieceType {
-    pawn,
-    rook,
-    knight,
-    bishop,
-    queen,
-    king,
-    empty
-}
 
 
 const TableDomElement = document.querySelector('table') as HTMLTableElement;
@@ -28,9 +23,6 @@ const chessMousePos = new Vector(-1, -1);
  * a set with every pressed down keys
  */
 const KeysPressed = new Set<string>();
-
-
-const PIECE_EMPTY: PieceType.empty = PieceType.empty;
 
 /**
  * a map with every pieces
@@ -87,7 +79,7 @@ let lastCheckingMoveDomElements: HTMLTableDataCellElement[] = [];
  * keep track of if the turn is ours
  */
 let clientTurn = false;
-let onSendMove: (move: Move) => any = () => { };
+let onSendMoveOnCallback: (move: Move) => any = () => { };
 
 
 /* -------------------------------------------------------------------------- */
@@ -95,71 +87,16 @@ let onSendMove: (move: Move) => any = () => { };
 /* -------------------------------------------------------------------------- */
 // ANCHOR FUNCTIONS
 
-/* --------------------------- PIECEMAP GENERATION -------------------------- */
-// ANCHOR .    piecemap generation
+/* --------------------------- PIECEMAP -------------------------- */
+// ANCHOR .    piecemap
 
-/**
- * return an piece map full of empty pieces
- */
-function initEmptyPieceMap() {
-    let res: Piece[][] = [];
-    for (let i = 0; i < 8; i++) {
-        // if you're wondering, yes the .fill(0) here is needed, its just javascrpipt being weird
-        res.push(new Array(8).fill(0).map(() => PieceType.empty));
-    }
-    return res as PiecesMap;
+
+function setPieceMap(val: PiecesMap) {
+    piecesMap = val;
 }
 
-/**
- * return a piece map with regular chess starting position
- */
-function initBasicPieceMap(): PiecesMap {
-    const BLACK_PAWN: Piece = { type: PieceType.pawn, color: "black" },
-        BLACK_ROOK: Piece = { type: PieceType.rook, color: "black" },
-        BLACK_KNIGHT: Piece = { type: PieceType.knight, color: "black" },
-        BLACK_BISHOP: Piece = { type: PieceType.bishop, color: "black" },
-        BLACK_QUEEN: Piece = { type: PieceType.queen, color: "black" },
-        BLACK_KING: Piece = { type: PieceType.king, color: "black" },
-        WHITE_PAWN: Piece = { type: PieceType.pawn, color: "white" },
-        WHITE_ROOK: Piece = { type: PieceType.rook, color: "white" },
-        WHITE_KNIGHT: Piece = { type: PieceType.knight, color: "white" },
-        WHITE_BISHOP: Piece = { type: PieceType.bishop, color: "white" },
-        WHITE_QUEEN: Piece = { type: PieceType.queen, color: "white" },
-        WHITE_KING: Piece = { type: PieceType.king, color: "white" };
-    return [
-        [BLACK_ROOK, BLACK_KNIGHT, BLACK_BISHOP, BLACK_QUEEN, BLACK_KING, BLACK_BISHOP, BLACK_KNIGHT, BLACK_ROOK],
-        [BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN, BLACK_PAWN,],
-        [PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY,],
-        [PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY,],
-        [PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY,],
-        [PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY, PIECE_EMPTY,],
-        [WHITE_PAWN, WHITE_PAWN, WHITE_PAWN, WHITE_PAWN, WHITE_PAWN, WHITE_PAWN, WHITE_PAWN, WHITE_PAWN,],
-        [WHITE_ROOK, WHITE_KNIGHT, WHITE_BISHOP, WHITE_QUEEN, WHITE_KING, WHITE_BISHOP, WHITE_KNIGHT, WHITE_ROOK]
-    ];
-}
-
-/**
- * return a fully random piecemap
- */
-function initRandomPieceMap() {
-    const emptyMap = initEmptyPieceMap();
-    for (let y = 0; y < 8; y++) {
-        for (let x = 0; x < 8; x++) {
-            emptyMap[y][x] = ranInt(0, 1) ? PIECE_EMPTY : { color: ranInt(0, 1) ? "white" : "black", type: ranInt(0, 5) } as Piece;
-        }
-    }
-    return emptyMap;
-}
-
-function clonePieceMap(pm: PiecesMap) {
-    return pm.map(v => [...v]) as PiecesMap;
-}
-
-function clonePiece(piece: Piece): Piece {
-    return piece === PIECE_EMPTY ? piece : {
-        color: piece.color,
-        type: piece.type
-    }
+function getPieceMap() {
+    return piecesMap;
 }
 
 /* -------------------------- DOM RELATED FUCNTIONS ------------------------- */
@@ -223,6 +160,10 @@ function generateDom(playingSide: 0 | 1) {
     return playingSide === 0 ? DEM : DEM.map(v => v.reverse()).reverse();
 }
 
+function setChessDomMap(val: HTMLTableDataCellElement[][]) {
+    chessDomMap = val;
+}
+
 /**
  * update the dom to match the piece map
  * @param pm the piece map to update the dom from
@@ -282,14 +223,6 @@ function addEventsListenersToChessTilesDom(playingSide: 0 | 1) {
     }
 }
 
-function fixCanvasRenderingPlayingSideDomIssue(playingSide: 0 | 1) {
-    if (playingSide === 1) {
-        const units = getChessToRealCoordUnits();
-        ctx.translate(ctx.canvas.width + units.x, ctx.canvas.height + units.y);
-        ctx.scale(-1, -1);
-    }
-}
-
 function removeOldTilesCssClasses() {
     // remove css class to last hovered tile
     if (!isOutside(lastInsideMouseCoordinates)) {
@@ -323,149 +256,11 @@ function moveTypeToStyle(moveType: MoveType) {
             return { css: "chess_possible_capture", arrow: Arrow.DefaultSyles.capture };
     }
 }
-
-function isOutside(pos: Vector) {
-    return pos.x < 0 || pos.y < 0 || pos.x > 7 || pos.y > 7
-};
-
-function performMove(move: Move, pm: PiecesMap) {
-    pm[move.performOnto.y][move.performOnto.x] = clonePiece(pm[move.performFrom.y][move.performFrom.x]);
-    pm[move.performFrom.y][move.performFrom.x] = PIECE_EMPTY;
-    return pm;
+function setTurn(val: boolean) {
+    clientTurn = val;
 }
-function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture = false): Move[] {
-    // no moves possible from an empty piece
-    if (pm[pieceCoordinates.y][pieceCoordinates.x] === PIECE_EMPTY) return [];
-    const piece = pm[pieceCoordinates.y][pieceCoordinates.x] as NotEmptyPiece;
-    // of the chess board
-    const isMoveOutside = (move: Move) => isOutside(move.performOnto);
-    const pushIfValid = (arr: Move[], move: Move): "valid" | "not empty" | "outside" => {
-        if (!isMoveOutside(move)) {
-            if (pm[move.performOnto.y][move.performOnto.x] === PIECE_EMPTY) {
-                arr.push(move);
-                return "valid";
-            } else {
-                return "not empty";
-            }
-        } else {
-            return "outside";
-        }
-    };
-    const checkLine = (from: Vector, piece: Piece, dir: Vector, length: number, capture: "move or capture" | "only capture" | "only move" = "move or capture") => {
-        const udir = dir.floor();
-        const resMoves: Move[] = [];
-        for (let i = 1; i <= length; i++) {
-            const actualTile = from.add(udir.multiply(i));
-            const move: Move = {
-                performFrom: from,
-                performOnto: actualTile,
-                type: "move",
-                checking: null
-            }
-            if ((capture === "only capture" && !isMoveOutside(move)) || (pushIfValid(resMoves, move) === "not empty" && capture === "move or capture")) {
-                const actualPiece = pm[actualTile.y][actualTile.x];
-                if (actualPiece === PIECE_EMPTY) break;
-                const notEmptyPiece = actualPiece as NotEmptyPiece;
-                if (piece !== PIECE_EMPTY && notEmptyPiece.color !== (<NotEmptyPiece>piece).color) {
-                    move.type = "capture";
-                    resMoves.push(move);
-                }
-                break;
-            }
-        }
-        return resMoves;
-    }
-    // don't return anything if piece doesn't exist
-    if (isOutside(pieceCoordinates)) return [];
-    const getCross = (from: Vector, piece: Piece, length: number = 8) => {
-        return [
-            ...checkLine(from, piece, new Vector(1, 0), length),
-            ...checkLine(from, piece, new Vector(0, 1), length),
-            ...checkLine(from, piece, new Vector(-1, 0), length),
-            ...checkLine(from, piece, new Vector(0, -1), length),
-        ];
-    };
-    const getDiagonalCross = (from: Vector, piece: Piece, length: number = 8) => {
-        return [
-            ...checkLine(from, piece, new Vector(1, 1), length),
-            ...checkLine(from, piece, new Vector(1, -1), length),
-            ...checkLine(from, piece, new Vector(-1, 1), length),
-            ...checkLine(from, piece, new Vector(-1, -1), length),
-        ];
-    };
-    const getMoves = (piece: NotEmptyPiece, pieceCoordinates: Vector) => {
-        switch (piece.type) {
-            case PieceType.bishop:
-                return getDiagonalCross(pieceCoordinates, piece);
-            case PieceType.rook:
-                return getCross(pieceCoordinates, piece);
-            case PieceType.king:
-                // technically a one liner
-                // return a list of legal king moves
-                return getCross(pieceCoordinates, piece, 1)
-                    .concat(getDiagonalCross(pieceCoordinates, piece, 1))
-                    // return a the list of possible moves for the king, without the ones that would make an enemy piece able to capture him
-                    .filter(move =>
-                        // return a cloned piece map of the game if the king did the move
-                        (performMove(move, clonePieceMap(pm)) as PiecesMap)
-                            // return an Array of rows stripped out of the piece that cannot capture the king if the move was performed
-                            .map((row, y, pieceMap) =>
-                                // return a row stripped of any piece that cannot capture the king if the move was performed
-                                row.filter((IKMPMPiece, x) =>
-                                    // return true if: the piece is not empty, the piece is an ennemy
-                                    IKMPMPiece !== PIECE_EMPTY && IKMPMPiece.color !== piece.color &&
-                                    // if the piece is a king (special case to avoid the king infinitely calling getPossibleMoves on each others)
-                                    (IKMPMPiece.type === PieceType.king ?
-                                        // make sure than the distance between both kings does not exceed 1 (in both y and x)
-                                        Math.abs(x - move.performOnto.x) <= 1 && Math.abs(y - move.performOnto.y) <= 1 :
-                                        // and the piece can eat the king
-                                        getPossiblesMoves(new Vector(x, y), pieceMap as PiecesMap)
-                                            //remove any moves that does not capture THE king
-                                            .filter(m => m.type === "capture" && move.performOnto.equals(m.performOnto))
-                                            // return true if a at leat a move can capture the king
-                                            .length > 0)
-                                ))
-                            // return an array of pieces that can capture the king if the move was performed
-                            .reduce((accumulator, currentValue) => accumulator.concat(...currentValue))
-                            // returns false if there's at least a piece that can capture the king if the move was performed
-                            .length < 1
-
-                    );
-            case PieceType.queen:
-                return getCross(pieceCoordinates, piece).concat(getDiagonalCross(pieceCoordinates, piece));
-            case PieceType.pawn:
-                const dir = new Vector(0, 1).multiply(piece.color === "white" ? -1 : 1);
-                const hasntMoved = piece.color === "black" ? pieceCoordinates.y === 1 : pieceCoordinates.y === 6;
-                const straightMove: Move[] = onlyCapture ? [] : checkLine(pieceCoordinates, piece, dir, hasntMoved ? 2 : 1, "only move");
-                return [
-                    ...straightMove,
-                    ...checkLine(pieceCoordinates, piece, dir.add(new Vector(1, 0)), 1, "only capture"),
-                    ...checkLine(pieceCoordinates, piece, dir.add(new Vector(-1, 0)), 1, "only capture")
-                ];
-            case PieceType.knight:
-                return [
-                    ...checkLine(pieceCoordinates, piece, new Vector(1, 2), 1),
-                    ...checkLine(pieceCoordinates, piece, new Vector(-1, 2), 1),
-                    ...checkLine(pieceCoordinates, piece, new Vector(1, -2), 1),
-                    ...checkLine(pieceCoordinates, piece, new Vector(-1, -2), 1),
-                    ...checkLine(pieceCoordinates, piece, new Vector(2, 1), 1),
-                    ...checkLine(pieceCoordinates, piece, new Vector(-2, 1), 1),
-                    ...checkLine(pieceCoordinates, piece, new Vector(2, -1), 1),
-                    ...checkLine(pieceCoordinates, piece, new Vector(-2, -1), 1),
-                ];
-            default:
-                return [];
-        }
-    }
-    const possibleMoves = getMoves(piece, pieceCoordinates);
-    for (let m of possibleMoves) {
-        const checkingMoves = getMoves(piece, m.performOnto).filter(v => {
-            const performOntoPiece = pm[v.performOnto.y][v.performOnto.x];
-            return (performOntoPiece !== PIECE_EMPTY && performOntoPiece.color !== piece.color && performOntoPiece.type === PieceType.king && v.type === "capture");
-        });
-        m.checking = checkingMoves.length > 0 ? checkingMoves[0].performOnto : null;
-    }
-    return possibleMoves;
+function onSendMove(func: (move: Move) => any) {
+    onSendMoveOnCallback = func;
 }
 
 /* ------------------------ EVENTS RELATED FUNCTIONS ------------------------ */
@@ -473,7 +268,7 @@ function getPossiblesMoves(pieceCoordinates: Vector, pm: PiecesMap, onlyCapture 
 
 function onKeyUpdate(removedKeys: Set<string>) {
     if (KeysPressed.has("KeyH")) {
-        showLogs = !showLogs;
+        Arrow.showLogs = !Arrow.showLogs;
     }
     if ((removedKeys.has("ShiftLeft") || (removedKeys.has("ShiftRight")) && customArrowMode)) {
         customArrowEnd();
@@ -504,17 +299,6 @@ function onKeyUpdate(removedKeys: Set<string>) {
 
 function isShiftPressed() {
     return (KeysPressed.has("ShiftLeft") || KeysPressed.has("ShiftRight"));
-}
-
-function updateCanvasSize(playingSide: 0 | 1) {
-    const tableHeight = TableDomElement.getBoundingClientRect().height;
-    const tableWidth = TableDomElement.getBoundingClientRect().width;
-    canvasOverlay.style.width = tableWidth + "px";
-    canvasOverlay.style.height = tableHeight + "px";
-    canvasOverlay.width = tableWidth;
-    canvasOverlay.height = tableHeight;
-    ctx.resetTransform();
-    fixCanvasRenderingPlayingSideDomIssue(playingSide);
 }
 
 function customArrowStart() {
@@ -613,7 +397,7 @@ function addAllEventsListeners(playingSide: 0 | 1) {
                 performMove(move, piecesMap);
                 updatePieceDom(piecesMap);
                 acutalPossibleMoves.splice(0);
-                onSendMove(move);
+                onSendMoveOnCallback(move);
             }
         }
 
@@ -675,4 +459,17 @@ function addAllEventsListeners(playingSide: 0 | 1) {
         }
     });
 
+}
+
+export {
+    addAllEventsListeners,
+    generateDom,
+    updatePieceDom,
+    addEventsListenersToChessTilesDom,
+    updateCanvasSize,
+    onSendMove,
+    setTurn,
+    setPieceMap,
+    getPieceMap,
+    setChessDomMap
 }

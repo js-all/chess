@@ -1,8 +1,23 @@
+import {
+    addAllEventsListeners,
+    generateDom,
+    updatePieceDom,
+    addEventsListenersToChessTilesDom,
+    onSendMove,
+    updateCanvasSize,
+    setTurn,
+    getPieceMap,
+    setPieceMap,
+    setChessDomMap
+ } from './chess';
+ import {Arrow} from './arrows';
+
+
 const socket = io("/p");
 
 function draw() {
-    ctx.clearRect(0, 0, 2 * ctx.canvas.width, 2 * ctx.canvas.height);
-    Arrow.renderArrows(ctx, showLogs);
+    Arrow.ctx.clearRect(0, 0, 2 * Arrow.ctx.canvas.width, 2 * Arrow.ctx.canvas.height);
+    Arrow.renderArrows(Arrow.ctx,Arrow.showLogs);
 
     // visuallizeBezierCurve(
     //     Arrow.DefaultTransitionBezierCurve.points.p1,
@@ -22,22 +37,22 @@ socket.on('disconnect', () => {
 });
 
 socket.on('GameState', (gameState: PiecesMap, metadata: GameMetadata) => {
-    piecesMap = gameState;
-    chessDomMap = generateDom(metadata.playingSide);
-    updatePieceDom(piecesMap);
+    setPieceMap(gameState)
+    setChessDomMap(generateDom(metadata.playingSide));
+    updatePieceDom(getPieceMap());
     addEventsListenersToChessTilesDom(metadata.playingSide);
     updateCanvasSize(metadata.playingSide);
-    onSendMove = (move) => {
+    onSendMove((move) => {
         socket.emit('Move', move);
-        clientTurn = false;
-    }
+        setTurn(false);
+    })
     addAllEventsListeners(metadata.playingSide);
     draw();
 });
 
 socket.on('GameStateUpdate', (gameState: PiecesMap) => {
-    piecesMap = gameState;
-    updatePieceDom(piecesMap);
+    setPieceMap(gameState);
+    updatePieceDom(getPieceMap());
 
 })
 
@@ -48,9 +63,9 @@ socket.on('GameFullError', () => {
 
 socket.on('InvalidMoveError', () => {
     alert('move was not accepted by server');
-    clientTurn = true;
+    setTurn(true);
 });
 
 socket.on('Turn', () => {
-    clientTurn = true;
+    setTurn(true);
 });

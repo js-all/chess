@@ -9,7 +9,7 @@ const server = http.createServer(app);
 const io = new Server(server);
 const { abs } = utils;
 
-app.use('/js', express.static(abs('./app/ts')));
+app.use('/bundle.js', express.static(abs('./app/bundle.js')));
 app.use('/css', express.static(abs('./app/css')));
 app.use('/chess_icons', express.static(abs('./app/chess_icons')))
 

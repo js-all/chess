@@ -24,3 +24,5 @@ function uuid4() {
       () => array[idx++].toString(16).padStart(2, "0"), // padStart ensures leading zero, if needed
     )
   }
+
+  export default uuid4;

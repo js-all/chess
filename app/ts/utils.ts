@@ -1,3 +1,5 @@
+import Vector from './Vector';
+
 function ranFloat(min: number, max: number) {
     return Math.random() * (max - min) + min;
 }
@@ -14,48 +16,6 @@ function ranRgb(alpha = false) {
     }
 }
 
-type BezierOutput = "point" | "y coordinate" | "x coordinate" | "length from start";
-
-type BezierCurveData = BezierCurveDataLength | BezierCurveDataPoint | BezierCurveDataXCoord | BezierCurveDataYCoord
-
-interface BezierCurveDataPoint {
-    points: {
-        p1: Vector,
-        p2: Vector,
-        p3: Vector,
-        p4: Vector
-    },
-    component: "point"
-}
-interface BezierCurveDataYCoord {
-    points: {
-        p1: Vector,
-        p2: Vector,
-        p3: Vector,
-        p4: Vector
-    },
-    component: "y coordinate"
-}
-interface BezierCurveDataXCoord {
-    points: {
-        p1: Vector,
-        p2: Vector,
-        p3: Vector,
-        p4: Vector
-    },
-    component: "x coordinate"
-}
-interface BezierCurveDataLength {
-    points: {
-        p1: Vector,
-        p2: Vector,
-        p3: Vector,
-        p4: Vector
-    },
-    component: "length from start"
-}
-
-
 function bezierInterpolation(bezierData: BezierCurveDataPoint, t: number): Vector
 function bezierInterpolation(bezierData: BezierCurveDataYCoord, t: number): number
 function bezierInterpolation(bezierData: BezierCurveDataXCoord, t: number): number
@@ -68,12 +28,12 @@ function bezierInterpolation(a1: Vector | BezierCurveData, a2: Vector | number, 
     const c = (n: number) => Math.pow(n, 3);
     const s = (n: number) => Math.pow(n, 2);
 
-    let p1 :Vector;
-    let p2 :Vector;
-    let p3 :Vector;
-    let p4 :Vector;
-    let t :number;
-    let output :BezierOutput;
+    let p1: Vector;
+    let p2: Vector;
+    let p3: Vector;
+    let p4: Vector;
+    let t: number;
+    let output: BezierOutput;
 
     if (Vector.isVector(a1)) {
         p1 = a1 as Vector;
@@ -105,4 +65,11 @@ function bezierInterpolation(a1: Vector | BezierCurveData, a2: Vector | number, 
             return p1.substract(point).length();
     }
 
+}
+
+export {
+    bezierInterpolation,
+    ranFloat,
+    ranInt,
+    ranRgb
 }

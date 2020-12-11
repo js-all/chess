@@ -1,9 +1,3 @@
-interface castInterface {
-    distance: number | null,
-    hit: boolean,
-    position: Vector | null
-}
-
 class Vector {
     x: number;
     y: number;
@@ -139,3 +133,6 @@ class Vector {
         return new Vector(...array);
     }
 }
+
+export {Vector};
+export default Vector;

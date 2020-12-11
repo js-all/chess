@@ -1,20 +1,9 @@
+import Vector from './Vector';
+import { bezierInterpolation, ranInt } from './utils';
+import uuid4 from './uuid'
+
 const canvasOverlay = document.querySelector("#arrow_canvas") as HTMLCanvasElement;
 const ctx = canvasOverlay.getContext('2d') as CanvasRenderingContext2D;
-let showLogs = false;
-interface ArrowStyle {
-    outline: string,
-    fill: string
-}
-
-interface ArrowState {
-    startPos: Vector,
-    endPos: Vector
-}
-
-interface TransitionArrowState {
-    startPos: Vector | null,
-    endPos: Vector | null
-}
 
 
 class Arrow {
@@ -86,6 +75,8 @@ class Arrow {
             fill: "rgb(100, 100, 100)"
         }
     };
+    static showLogs = false;
+    static ctx = ctx;
     startPos: Vector;
     endPos: Vector;
     pathDirrect: boolean;
@@ -134,7 +125,7 @@ class Arrow {
         this.enable();
     }
     getFinaleState(): ArrowState {
-        return {    
+        return {
             endPos: this.transitionToState.endPos || this.endPos,
             startPos: this.transitionToState.startPos || this.startPos
         }
@@ -430,7 +421,8 @@ class Arrow {
  * get the size (in pixel, real coordinates) of a chess Tile
  */
 function getChessToRealCoordUnits() {
-    const tileClienRect = chessDomMap[0][0].getBoundingClientRect();
+    const tileClienRect = document.querySelector('td.chess_col')?.getBoundingClientRect();
+    if (tileClienRect === undefined) throw new TypeError('cannot find td Element, in getChessToRealCoordinates');
     return new Vector(tileClienRect.width, tileClienRect.height);
 }
 /**
@@ -534,4 +526,34 @@ function visuallizeBezierCurve(p1: Vector, p2: Vector, p3: Vector, p4: Vector, p
         ctx.fillText("x coord", units.x * 6, units.y * 3.2);
         ctx.fillText("length", units.x * 8, units.y * 3.2);
     } catch (e) { };
+}
+
+function updateCanvasSize(playingSide: 0 | 1) {
+    const TableDomElement = document.querySelector('table');
+    if (TableDomElement == undefined) throw new TypeError('cannot find table element in updateCanvasSize');
+    const tableHeight = TableDomElement.getBoundingClientRect().height;
+    const tableWidth = TableDomElement.getBoundingClientRect().width;
+    canvasOverlay.style.width = tableWidth + "px";
+    canvasOverlay.style.height = tableHeight + "px";
+    canvasOverlay.width = tableWidth;
+    canvasOverlay.height = tableHeight;
+    ctx.resetTransform();
+    fixCanvasRenderingPlayingSideDomIssue(playingSide);
+}
+
+function fixCanvasRenderingPlayingSideDomIssue(playingSide: 0 | 1) {
+    if (playingSide === 1) {
+        const units = getChessToRealCoordUnits();
+        ctx.translate(ctx.canvas.width + units.x, ctx.canvas.height + units.y);
+        ctx.scale(-1, -1);
+    }
+}
+
+export default Arrow;
+export {
+    Arrow,
+    ChessToRealCoordinates,
+    getChessToRealCoordUnits,
+    updateCanvasSize,
+    visuallizeBezierCurve
 }
